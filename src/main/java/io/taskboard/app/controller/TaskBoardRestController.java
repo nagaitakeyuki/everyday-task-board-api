@@ -18,9 +18,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
+@CrossOrigin(origins = "http://127.0.0.1:5500")
 public class TaskBoardRestController {
 
-    @CrossOrigin(origins = "http://127.0.0.1:5500")
     @RequestMapping("/sprints")
     public SprintsResponse getSprints() {
         DynamoDBMapper mapper = createMapper();
@@ -63,7 +63,6 @@ public class TaskBoardRestController {
 
     }
 
-    @CrossOrigin(origins = "http://127.0.0.1:5500")
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
 
@@ -76,7 +75,6 @@ public class TaskBoardRestController {
         mapper.save(targetTaskItem);
     }
 
-    @CrossOrigin(origins = "http://127.0.0.1:5500")
     @RequestMapping(value = "/sprints/tasks", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public AddTasksResponse addTasks(@RequestBody AddTasksForm form) {
 
