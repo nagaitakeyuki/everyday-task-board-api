@@ -19,6 +19,8 @@ public class TaskItem {
     private String baseSprintId;
     private String baseStoryId;
 
+    private Integer sortIndex;
+
     @DynamoDBHashKey(attributeName="PK")
     public String getPk() {return pk;}
 
@@ -36,4 +38,8 @@ public class TaskItem {
 
     @DynamoDBAttribute(attributeName="BaseStoryId")
     public String getBaseStoryId() {return baseStoryId;}
+
+    @DynamoDBAttribute(attributeName="SortIndex")
+    public Integer getSortIndex() {return sortIndex;}
+
 }
