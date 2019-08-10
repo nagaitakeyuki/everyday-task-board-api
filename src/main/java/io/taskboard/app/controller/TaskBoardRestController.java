@@ -6,10 +6,12 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import io.taskboard.app.form.AddStoryForm;
 import io.taskboard.app.form.AddTasksForm;
 import io.taskboard.app.form.ChangeSortOrderForm;
 import io.taskboard.app.form.ChangeTaskStatusForm;
 import io.taskboard.app.response.*;
+import io.taskboard.domain.SprintIndexItem;
 import io.taskboard.domain.StoryIndexItem;
 import io.taskboard.domain.TaskItem;
 import org.springframework.http.MediaType;
@@ -106,6 +108,43 @@ public class TaskBoardRestController {
 
     }
 
+    @RequestMapping(value = "/sprints/storyBelongingToSprint", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Story addStoryToSprint(@RequestBody AddStoryForm form) {
+
+        DynamoDBMapper mapper = createMapper();
+
+        // 対象スプリントに属する、全ストーリーのIDを取得する
+        DynamoDBQueryExpression<SprintIndexItem> query
+                = new DynamoDBQueryExpression<SprintIndexItem>()
+                .withIndexName("SprintIndex")
+                .withKeyConditionExpression("UserId = :userId and BaseSprintId = :baseSprintId")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":baseSprintId", new AttributeValue().withS(form.getSprintId()));
+                    }
+                });
+
+        int newItemSortOrder = mapper.query(SprintIndexItem.class, query).size();
+
+        TaskItem newStoryItem = new TaskItem();
+        newStoryItem.setUserId("user1");
+        newStoryItem.setItemId("story" + UUID.randomUUID().toString());
+        newStoryItem.setName(form.getStoryName());
+        newStoryItem.setStatus("new");
+        newStoryItem.setBaseSprintId(form.getSprintId());
+        newStoryItem.setSortOrder(newItemSortOrder++);
+
+        mapper.save(newStoryItem);
+
+        Story newStory = new Story();
+        newStory.setStoryId(newStoryItem.getItemId());
+        newStory.setStoryName(newStoryItem.getName());
+        newStory.setStoryStatus(newStoryItem.getStatus());
+        newStory.setBaseSprintId(newStoryItem.getBaseSprintId());
+
+        return newStory;
+    }
 
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
