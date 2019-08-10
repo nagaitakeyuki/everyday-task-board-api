@@ -6,32 +6,35 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import lombok.Data;
 
-@DynamoDBTable(tableName="Task")
+@DynamoDBTable(tableName="TaskBoard")
 @Data
 public class TaskItem {
 
-    private String pk;
-    private String sk;
+    private String userId;
+    private String itemId;
 
-    private String data;
+    private String name;
     private String status;
+    private Integer sortOrder;
 
     private String baseSprintId;
     private String baseStoryId;
+    private String backlogCategoryId;
 
-    private Integer sortIndex;
+    @DynamoDBHashKey(attributeName="UserId")
+    public String getUserId() {return userId;}
 
-    @DynamoDBHashKey(attributeName="PK")
-    public String getPk() {return pk;}
+    @DynamoDBRangeKey(attributeName="ItemId")
+    public String getItemId() {return itemId;}
 
-    @DynamoDBRangeKey(attributeName="SK")
-    public String getSk() {return sk;}
-
-    @DynamoDBAttribute(attributeName="Data")
-    public String getData() {return data; }
+    @DynamoDBAttribute(attributeName="Name")
+    public String getName() {return name; }
 
     @DynamoDBAttribute(attributeName="Status")
     public String getStatus() {return status;}
+
+    @DynamoDBAttribute(attributeName="SortOrder")
+    public Integer getSortOrder() {return sortOrder;}
 
     @DynamoDBAttribute(attributeName="BaseSprintId")
     public String getBaseSprintId() {return baseSprintId;}
@@ -39,7 +42,7 @@ public class TaskItem {
     @DynamoDBAttribute(attributeName="BaseStoryId")
     public String getBaseStoryId() {return baseStoryId;}
 
-    @DynamoDBAttribute(attributeName="SortIndex")
-    public Integer getSortIndex() {return sortIndex;}
+    @DynamoDBAttribute(attributeName="BacklogCategoryId")
+    public String getBacklogCategoryId() {return backlogCategoryId;}
 
 }

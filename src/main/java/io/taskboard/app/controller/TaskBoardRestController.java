@@ -5,12 +5,12 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBScanExpression;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import io.taskboard.app.form.AddTasksForm;
 import io.taskboard.app.form.ChangeSortOrderForm;
 import io.taskboard.app.form.ChangeTaskStatusForm;
 import io.taskboard.app.response.*;
+import io.taskboard.domain.StoryIndexItem;
 import io.taskboard.domain.TaskItem;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -24,153 +24,219 @@ import java.util.stream.Stream;
 public class TaskBoardRestController {
 
     @RequestMapping("/sprints")
-    public SprintsResponse getSprints() {
+    public AllDataResponse getSprints() {
+
         DynamoDBMapper mapper = createMapper();
 
-        List<TaskItem> tasks = mapper.scan(TaskItem.class, new DynamoDBScanExpression());
+        DynamoDBQueryExpression<TaskItem> gettingTaskBoardDataOfSingleUserQuery
+                = new DynamoDBQueryExpression<TaskItem>()
+                    .withKeyConditionExpression("UserId = :userId")
+                    .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                        {
+                            put(":userId", new AttributeValue().withS("user1"));
+                        }
+                    });
 
-        SprintsResponse response = new SprintsResponse();
+        List<TaskItem> all = mapper.query(TaskItem.class, gettingTaskBoardDataOfSingleUserQuery);
 
-        tasks.forEach(item -> {
-            if (item.getSk().startsWith("sprint")) {
+
+        AllDataResponse response = new AllDataResponse();
+
+        all.stream()
+            .filter(item -> item.getItemId().startsWith("sprint"))
+            .forEach(item -> {
                 Sprint sprint = new Sprint();
-                sprint.setSprintId(item.getSk());
-                sprint.setSprintName(item.getData());
+                sprint.setSprintId(item.getItemId());
+                sprint.setSprintName(item.getName());
                 sprint.setSpringStatus(item.getStatus());
-                response.putSprint(item.getSk(), sprint);
-                return;
-            }
+                response.putSprint(sprint.getSprintId(), sprint);
+            });
 
-            if (item.getSk().startsWith("story")) {
-                Story story = new Story();
-                story.setStoryId(item.getSk());
-                story.setStoryName(item.getData());
-                story.setStoryStatus(item.getStatus());
-                story.setBaseSprintId(item.getBaseSprintId());
-                response.getSprint(item.getPk()).putStory(story.getStoryId(), story);
-            }
+        all.stream()
+            .filter(item -> item.getItemId().startsWith("backlogCategory"))
+            .forEach(item -> {
+                BacklogCategory backlogCategory = new BacklogCategory();
+                backlogCategory.setBacklogCategoryId(item.getItemId());
+                backlogCategory.setBacklogCategoryName(item.getName());
+                response.putBacklogCategory(backlogCategory.getBacklogCategoryId(), backlogCategory);
+            });
 
-            if (item.getSk().startsWith("task")) {
+        Map<String, Story> stories =
+            all.stream()
+                .filter(item -> item.getItemId().startsWith("story"))
+                .map(item -> {
+                    Story story = new Story();
+                    story.setStoryId(item.getItemId());
+                    story.setStoryName(item.getName());
+                    story.setStoryStatus(item.getStatus());
+                    story.setBaseSprintId(item.getBaseSprintId());
+                    story.setBacklogCategoryId(item.getBacklogCategoryId());
+                    return story;
+                })
+                .collect(Collectors.toMap(story -> story.getStoryId(), story -> story));
+
+        stories.forEach((storyId, story) -> {
+            if (story.getBacklogCategoryId() != null) {
+                // バックログに紐づく場合
+
+                response.getBacklogCategory(story.getBacklogCategoryId())
+                        .putStory(storyId, story);
+
+            } else {
+                // スプリントに紐づく場合
+                response.getSprint(story.getBaseSprintId())
+                        .putStory(storyId, story);
+            }
+        });
+
+        all.stream()
+            .filter(item -> item.getItemId().startsWith("task"))
+            .forEach(item -> {
                 Task task = new Task();
-                task.setTaskId(item.getSk());
-                task.setTaskName(item.getData());
+                task.setTaskId(item.getItemId());
+                task.setTaskName(item.getName());
                 task.setTaskStatus(item.getStatus());
                 task.setBaseStoryId(item.getBaseStoryId());
-                task.setSortIndex(item.getSortIndex());
-                response.getSprint(item.getPk()).getStory(item.getBaseStoryId()).putTask(item.getSk(), task);
-            }
+                task.setSortOrder(item.getSortOrder());
 
-        });
+                stories.get(task.getBaseStoryId()).putTask(task.getTaskId(), task);
+            });
 
         return response;
 
     }
+
 
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
 
         DynamoDBMapper mapper = createMapper();
 
-        DynamoDBQueryExpression<TaskItem> gettingSprintQuery
-                = new DynamoDBQueryExpression<TaskItem>()
-                .withKeyConditionExpression("PK = :PK")
-                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
-                    {
-                        put(":PK", new AttributeValue().withS(form.getSprintId()));
-                    }
-                });
+        // 対象タスクのストーリーに属する、全タスクのIDを取得する
+        DynamoDBQueryExpression<StoryIndexItem> query
+                = new DynamoDBQueryExpression<StoryIndexItem>()
+                        .withIndexName("StoryIndex")
+                        .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
+                        .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                            {
+                                put(":userId", new AttributeValue().withS("user1"));
+                                put(":baseStoryId", new AttributeValue().withS(form.getStoryId()));
+                            }
+                        });
 
-        List<TaskItem> currentSprintItems = mapper.query(TaskItem.class, gettingSprintQuery);
+        List<StoryIndexItem> taskIds = mapper.query(StoryIndexItem.class, query);
 
-        TaskItem statusChangedTask
-                = currentSprintItems.stream()
-                .filter(taskItem -> taskItem.getSk().equals(form.getTaskId()))
-                .collect(Collectors.toList()).get(0);
+        // 各タスクの詳細を取得する
+        List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
+                                                            TaskItem item = new TaskItem();
+                                                            item.setUserId("user1");
+                                                            item.setItemId(taskId.getItemId());
+                                                            return item;
+                                                        })
+                                                    .collect(Collectors.toList());
+
+        Map<String, TaskItem> tasks = mapper.batchLoad(tasksToGet).get("TaskBoard")
+                                            .stream()
+                                            .map(task -> (TaskItem) task)
+                                            .collect(Collectors.toMap(task -> task.getItemId(), task -> task));
+
+
+        TaskItem statusChangedTask = tasks.get(form.getTaskId());
 
         String oldStatus = statusChangedTask.getStatus();
 
         statusChangedTask.setStatus(form.getNewStatus());
-        statusChangedTask.setSortIndex(form.getNewIndex());
+        statusChangedTask.setSortOrder(form.getNewIndex());
 
         // ステータスごとにタスク順を再設定する
         //   1. 変更前のステータス
         //      ステータス変更されたタスクが無くなると、抜け番ができる。その抜け番を詰める。
-        List<TaskItem> reorderedOldStatusTasks = currentSprintItems.stream()
-                .filter(taskItem -> taskItem.getSk().startsWith("task")
-                        && taskItem.getBaseStoryId().equals(form.getStoryId())
-                        && taskItem.getStatus().equals(oldStatus))
-                .sorted(Comparator.comparingInt(TaskItem::getSortIndex))
+        List<TaskItem> reorderedOldStatusTasks = new ArrayList<TaskItem>(tasks.values())
+                .stream()
+                .filter(taskItem -> taskItem.getStatus().equals(oldStatus))
+                .sorted(Comparator.comparingInt(TaskItem::getSortOrder))
                 .collect(Collectors.toList());
 
         for (int i = 0; i < reorderedOldStatusTasks.size(); i++) {
-            reorderedOldStatusTasks.get(i).setSortIndex(i);
+            reorderedOldStatusTasks.get(i).setSortOrder(i);
         }
 
         // 　2. 変更後のステータス
-        List<TaskItem> reorderedNewStatusTasks = currentSprintItems.stream()
-                .filter(taskItem -> taskItem.getSk().startsWith("task")
-                        && taskItem.getBaseStoryId().equals(form.getStoryId())
-                        && taskItem.getStatus().equals(form.getNewStatus()))
+        List<TaskItem> reorderedNewStatusTasks = new ArrayList<TaskItem>(tasks.values())
+                .stream()
+                .filter(taskItem -> taskItem.getStatus().equals(form.getNewStatus()))
                 .sorted((a, b) -> {
                     // ユーザーにより変更されたタスクを優先的に前に並べる
-                    if(a.getSortIndex() == b.getSortIndex() && a.getSk().equals(form.getTaskId())) {
+                    if(a.getSortOrder() == b.getSortOrder() && a.getItemId().equals(form.getTaskId())) {
                         return -1;
                     }
 
                     // その他の場合は単純に昇順に並べる
-                    return a.getSortIndex() - b.getSortIndex();
+                    return a.getSortOrder() - b.getSortOrder();
                 })
                 .collect(Collectors.toList());
 
         for (int i = 0; i < reorderedNewStatusTasks.size(); i++) {
-            reorderedNewStatusTasks.get(i).setSortIndex(i);
+            reorderedNewStatusTasks.get(i).setSortOrder(i);
         }
 
         mapper.batchSave(Stream.concat(reorderedOldStatusTasks.stream(), reorderedNewStatusTasks.stream())
-                                 .collect(Collectors.toList()));
+                .collect(Collectors.toList()));
 
     }
 
-    @RequestMapping(value = "/sprints/taskSortIndex", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    @RequestMapping(value = "/sprints/taskSortOrder", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskSortIndex(@RequestBody ChangeSortOrderForm form) {
 
         DynamoDBMapper mapper = createMapper();
 
-        DynamoDBQueryExpression<TaskItem> queryExpression
-                = new DynamoDBQueryExpression<TaskItem>()
-                .withKeyConditionExpression("PK = :PK")
+        // 対象タスクのストーリーに属する、全タスクのIDを取得する
+        DynamoDBQueryExpression<StoryIndexItem> query
+                = new DynamoDBQueryExpression<StoryIndexItem>()
+                .withIndexName("StoryIndex")
+                .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":PK", new AttributeValue().withS(form.getSprintId()));
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":baseStoryId", new AttributeValue().withS(form.getStoryId()));
                     }
                 });
 
-        List<TaskItem> currentSprintItems = mapper.query(TaskItem.class, queryExpression);
+        List<StoryIndexItem> taskIds = mapper.query(StoryIndexItem.class, query);
 
-        TaskItem orderChangedTask
-                = currentSprintItems.stream()
-                .filter(taskItem -> taskItem.getSk().equals(form.getTaskId()))
-                .collect(Collectors.toList()).get(0);
+        // 各タスクの詳細を取得する
+        List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
+            TaskItem item = new TaskItem();
+            item.setUserId("user1");
+            item.setItemId(taskId.getItemId());
+            return item;
+        }).collect(Collectors.toList());
 
-        orderChangedTask.setSortIndex(form.getNewIndex());
+        Map<String, TaskItem> tasks = mapper.batchLoad(tasksToGet).get("TaskBoard")
+                .stream()
+                .map(task -> (TaskItem) task)
+                .collect(Collectors.toMap(task -> task.getItemId(), task -> task));
 
-        List<TaskItem> reorderedTasks = currentSprintItems.stream()
-                .filter(taskItem -> taskItem.getSk().startsWith("task")
-                        && taskItem.getBaseStoryId().equals(form.getStoryId())
-                        && taskItem.getStatus().equals(orderChangedTask.getStatus()))
+        TaskItem orderChangedTask = tasks.get(form.getTaskId());
+
+        orderChangedTask.setSortOrder(form.getNewIndex());
+
+        List<TaskItem> reorderedTasks = new ArrayList<TaskItem>(tasks.values())
+                .stream()
+                .filter(taskItem -> taskItem.getStatus().equals(orderChangedTask.getStatus()))
                 .sorted((a, b) -> {
                     // ユーザーにより変更されたタスクを優先的に前に並べる
-                    if(a.getSortIndex() == b.getSortIndex() && a.getSk().equals(form.getTaskId())) {
+                    if(a.getSortOrder() == b.getSortOrder() && a.getItemId().equals(form.getTaskId())) {
                         return -1;
                     }
 
                     // その他の場合は単純に昇順に並べる
-                    return a.getSortIndex() - b.getSortIndex();
+                    return a.getSortOrder() - b.getSortOrder();
                 })
                 .collect(Collectors.toList());
 
         for (int i = 0; i < reorderedTasks.size(); i++) {
-            reorderedTasks.get(i).setSortIndex(i);
+            reorderedTasks.get(i).setSortOrder(i);
         }
 
         mapper.batchSave(reorderedTasks);
@@ -182,56 +248,63 @@ public class TaskBoardRestController {
 
         DynamoDBMapper mapper = createMapper();
 
-        DynamoDBQueryExpression<TaskItem> gettingTasksOfCurrentSprintQuery
-                = new DynamoDBQueryExpression<TaskItem>()
-                .withKeyConditionExpression("PK = :PK and begins_with(SK, :SK)")
+        // 対象ストーリーに属する、全タスクのIDを取得する
+        DynamoDBQueryExpression<StoryIndexItem> query
+                = new DynamoDBQueryExpression<StoryIndexItem>()
+                .withIndexName("StoryIndex")
+                .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":PK", new AttributeValue().withS(form.getSprintId()));
-                        put(":SK", new AttributeValue().withS("task"));
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":baseStoryId", new AttributeValue().withS(form.getStoryId()));
                     }
                 });
 
-        List<TaskItem> tasksOfCurrentSprint = mapper.query(TaskItem.class, gettingTasksOfCurrentSprintQuery);
+        List<StoryIndexItem> taskIds = mapper.query(StoryIndexItem.class, query);
 
-        List<TaskItem> tasksOfCurrentStoryAndStatusNew
-                = tasksOfCurrentSprint
-                    .stream()
-                    .filter(taskItem -> taskItem.getBaseStoryId().equals(form.getStoryId())
-                                            && taskItem.getStatus().equals("new"))
-                    .collect(Collectors.toList());
+        // 各タスクの詳細を取得する
+        List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
+            TaskItem item = new TaskItem();
+            item.setUserId("user1");
+            item.setItemId(taskId.getItemId());
+            return item;
+        }).collect(Collectors.toList());
 
+        List<TaskItem> tasksOfCurrentStoryAndStatusNew = mapper.batchLoad(tasksToGet).get("TaskBoard")
+                                                                .stream()
+                                                                .map(task -> (TaskItem) task)
+                                                                .filter(task -> task.getStatus().equals("new"))
+                                                                .collect(Collectors.toList());
 
-        Integer newItemSortIndex = tasksOfCurrentStoryAndStatusNew.size();
+        int newItemSortOrder = tasksOfCurrentStoryAndStatusNew.size();
 
-        final List<TaskItem> newTasks
-                = Arrays.stream(form.getTaskNames())
-                        .map(taskName ->
-                                {
-                                    TaskItem newTask = new TaskItem();
-                                    newTask.setPk(form.getSprintId());
-                                    newTask.setSk("task" + UUID.randomUUID().toString());
-                                    newTask.setData(taskName);
-                                    newTask.setStatus("new");
-                                    newTask.setBaseStoryId(form.getStoryId());
+        final List<TaskItem> newTasks = Arrays.stream(form.getTaskNames())
+                                                .map(taskName ->
+                                                        {
+                                                            TaskItem newTask = new TaskItem();
+                                                            newTask.setUserId("user1");
+                                                            newTask.setItemId("task" + UUID.randomUUID().toString());
+                                                            newTask.setName(taskName);
+                                                            newTask.setStatus("new");
+                                                            newTask.setBaseStoryId(form.getStoryId());
 
-                                    return newTask;
-                                }
-                        ).collect(Collectors.toList());
+                                                            return newTask;
+                                                        }
+                                                ).collect(Collectors.toList());
 
         for (TaskItem item: newTasks) {
-            item.setSortIndex(newItemSortIndex++);
+            item.setSortOrder(newItemSortOrder++);
         }
 
         mapper.batchSave(newTasks);
 
         List<Task> newTasksForResponse = newTasks.stream().map(taskItem -> {
             Task task = new Task();
-            task.setTaskId(taskItem.getSk());
-            task.setTaskName(taskItem.getData());
+            task.setTaskId(taskItem.getItemId());
+            task.setTaskName(taskItem.getName());
             task.setTaskStatus(taskItem.getStatus());
             task.setBaseStoryId(taskItem.getBaseStoryId());
-            task.setSortIndex(taskItem.getSortIndex());
+            task.setSortOrder(taskItem.getSortOrder());
 
             return task;
         }).collect(Collectors.toList());

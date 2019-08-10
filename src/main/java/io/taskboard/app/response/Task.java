@@ -8,5 +8,5 @@ public class Task {
     private String taskName;
     private String taskStatus;
     private String baseStoryId;
-    private Integer sortIndex;
+    private Integer sortOrder;
 }

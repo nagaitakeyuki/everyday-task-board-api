@@ -11,6 +11,8 @@ public class Story {
     private String storyName;
     private String storyStatus;
     private String baseSprintId;
+    private String backlogCategoryId;
+
     private Map<String, Task> tasks = new HashMap<>();
 
     public Story putTask(String taskId, Task task) {
