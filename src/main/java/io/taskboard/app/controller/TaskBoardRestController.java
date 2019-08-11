@@ -8,6 +8,7 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import io.taskboard.app.form.*;
 import io.taskboard.app.response.*;
+import io.taskboard.domain.BacklogCategoryIndexItem;
 import io.taskboard.domain.SprintIndexItem;
 import io.taskboard.domain.StoryIndexItem;
 import io.taskboard.domain.TaskItem;
@@ -181,6 +182,46 @@ public class TaskBoardRestController {
 
         return newStory;
     }
+
+    @RequestMapping(value = "/sprints/storyBelongingToBacklogCategory", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Story addStoryToBacklogCategory(@RequestBody AddStoryToBacklogCategoryForm form) {
+
+        DynamoDBMapper mapper = createMapper();
+
+        // 対象バックログカテゴリーに属する、全ストーリーのIDを取得する
+        DynamoDBQueryExpression<BacklogCategoryIndexItem> query
+                = new DynamoDBQueryExpression<BacklogCategoryIndexItem>()
+                .withIndexName("BacklogCategoryIndex")
+                .withKeyConditionExpression("UserId = :userId and BacklogCategoryId = :backlogCategoryId")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":backlogCategoryId", new AttributeValue().withS(form.getBacklogCategoryId()));
+                    }
+                });
+
+        int newItemSortOrder = mapper.query(BacklogCategoryIndexItem.class, query).size();
+
+        TaskItem newStoryItem = new TaskItem();
+        newStoryItem.setUserId("user1");
+        newStoryItem.setItemId("story" + UUID.randomUUID().toString());
+        newStoryItem.setName(form.getStoryName());
+        newStoryItem.setStatus("new");
+        newStoryItem.setBacklogCategoryId(form.getBacklogCategoryId());
+        newStoryItem.setSortOrder(newItemSortOrder++);
+
+        mapper.save(newStoryItem);
+
+        Story newStory = new Story();
+        newStory.setStoryId(newStoryItem.getItemId());
+        newStory.setStoryName(newStoryItem.getName());
+        newStory.setStoryStatus(newStoryItem.getStatus());
+        newStory.setBacklogCategoryId(newStoryItem.getBacklogCategoryId());
+        newStory.setSortOrder(newStoryItem.getSortOrder());
+
+        return newStory;
+    }
+
 
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
