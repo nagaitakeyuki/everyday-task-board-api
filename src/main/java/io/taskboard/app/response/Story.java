@@ -12,6 +12,7 @@ public class Story {
     private String storyStatus;
     private String baseSprintId;
     private String backlogCategoryId;
+    private Integer sortOrder;
 
     private Map<String, Task> tasks = new HashMap<>();
 

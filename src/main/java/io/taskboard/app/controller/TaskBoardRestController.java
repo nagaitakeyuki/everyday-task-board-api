@@ -6,10 +6,7 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import io.taskboard.app.form.AddStoryForm;
-import io.taskboard.app.form.AddTasksForm;
-import io.taskboard.app.form.ChangeSortOrderForm;
-import io.taskboard.app.form.ChangeTaskStatusForm;
+import io.taskboard.app.form.*;
 import io.taskboard.app.response.*;
 import io.taskboard.domain.SprintIndexItem;
 import io.taskboard.domain.StoryIndexItem;
@@ -50,7 +47,8 @@ public class TaskBoardRestController {
                 Sprint sprint = new Sprint();
                 sprint.setSprintId(item.getItemId());
                 sprint.setSprintName(item.getName());
-                sprint.setSpringStatus(item.getStatus());
+                sprint.setSprintStatus(item.getStatus());
+                sprint.setSortOrder(item.getSortOrder());
                 response.putSprint(sprint.getSprintId(), sprint);
             });
 
@@ -73,6 +71,7 @@ public class TaskBoardRestController {
                     story.setStoryStatus(item.getStatus());
                     story.setBaseSprintId(item.getBaseSprintId());
                     story.setBacklogCategoryId(item.getBacklogCategoryId());
+                    story.setSortOrder(item.getSortOrder());
                     return story;
                 })
                 .collect(Collectors.toMap(story -> story.getStoryId(), story -> story));
@@ -106,6 +105,42 @@ public class TaskBoardRestController {
 
         return response;
 
+    }
+
+    @RequestMapping(value = "/sprints/sprint", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Sprint addSprint(@RequestBody AddSprintForm form) {
+
+        DynamoDBMapper mapper = createMapper();
+
+        // 全スプリントのIDを取得する
+        DynamoDBQueryExpression<TaskItem> query
+                = new DynamoDBQueryExpression<TaskItem>()
+                .withKeyConditionExpression("UserId = :userId and begins_with(ItemId, :itemId)")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":itemId", new AttributeValue().withS("sprint"));
+                    }
+                });
+
+        int newItemSortOrder = mapper.query(TaskItem.class, query).size();
+
+        TaskItem newSprintItem = new TaskItem();
+        newSprintItem.setUserId("user1");
+        newSprintItem.setItemId("sprint" + UUID.randomUUID().toString());
+        newSprintItem.setName(form.getSprintName());
+        newSprintItem.setStatus("new");
+        newSprintItem.setSortOrder(newItemSortOrder++);
+
+        mapper.save(newSprintItem);
+
+        Sprint newSprint = new Sprint();
+        newSprint.setSprintId(newSprintItem.getItemId());
+        newSprint.setSprintName(newSprintItem.getName());
+        newSprint.setSprintStatus(newSprintItem.getStatus());
+        newSprint.setSortOrder(newSprintItem.getSortOrder());
+
+        return newSprint;
     }
 
     @RequestMapping(value = "/sprints/storyBelongingToSprint", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -142,6 +177,7 @@ public class TaskBoardRestController {
         newStory.setStoryName(newStoryItem.getName());
         newStory.setStoryStatus(newStoryItem.getStatus());
         newStory.setBaseSprintId(newStoryItem.getBaseSprintId());
+        newStory.setSortOrder(newStoryItem.getSortOrder());
 
         return newStory;
     }
@@ -301,6 +337,8 @@ public class TaskBoardRestController {
 
         List<StoryIndexItem> taskIds = mapper.query(StoryIndexItem.class, query);
 
+        int newItemSortOrder = 0;
+
         // 各タスクの詳細を取得する
         List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
             TaskItem item = new TaskItem();
@@ -309,13 +347,15 @@ public class TaskBoardRestController {
             return item;
         }).collect(Collectors.toList());
 
-        List<TaskItem> tasksOfCurrentStoryAndStatusNew = mapper.batchLoad(tasksToGet).get("TaskBoard")
-                                                                .stream()
-                                                                .map(task -> (TaskItem) task)
-                                                                .filter(task -> task.getStatus().equals("new"))
-                                                                .collect(Collectors.toList());
-
-        int newItemSortOrder = tasksOfCurrentStoryAndStatusNew.size();
+        List<Object> searchResult = mapper.batchLoad(tasksToGet).get("TaskBoard");
+        if (searchResult != null) {
+            // ステータス「new」のタスクが１件以上ある場合
+            newItemSortOrder = searchResult.stream()
+                                            .map(task -> (TaskItem) task)
+                                            .filter(task -> task.getStatus().equals("new"))
+                                            .collect(Collectors.toList())
+                                            .size();
+        }
 
         final List<TaskItem> newTasks = Arrays.stream(form.getTaskNames())
                                                 .map(taskName ->

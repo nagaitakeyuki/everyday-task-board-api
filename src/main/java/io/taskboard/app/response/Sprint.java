@@ -9,7 +9,9 @@ import java.util.Map;
 public class Sprint {
     private String sprintId;
     private String sprintName;
-    private String springStatus;
+    private String sprintStatus;
+    private Integer sortOrder;
+
     private Map<String, Story> stories = new HashMap<>();
 
     public Sprint putStory(String storyId, Story story) {
