@@ -330,6 +330,40 @@ public class TaskBoardRestController {
 
     }
 
+    @RequestMapping(value = "/sprints/storySortOrder", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public void changeStorySortOrder(@RequestBody ChangeStorySortOrderForm form) {
+        DynamoDBMapper mapper = createMapper();
+
+        Map<String, TaskItem> allStories = form.getSourceId().startsWith("backlogCategory")
+                ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper)
+                : searchStoriesOfSprint(form.getSourceId(), mapper);
+
+        // 対象ストーリーの所属を変更する
+        TaskItem changedStory = allStories.get(form.getStoryId());
+        changedStory.setSortOrder(form.getNewIndex());
+
+        // スプリント or バックログカテゴリー内の並び順を整える
+        List<TaskItem> reorderedStories = new ArrayList<TaskItem>(allStories.values())
+                                                .stream()
+                                                .sorted((a, b) -> {
+                                                    // ユーザーにより変更されたタスクを優先的に前に並べる
+                                                    if(a.getSortOrder() == b.getSortOrder()
+                                                            && a.getItemId().equals(form.getStoryId())) {
+                                                        return -1;
+                                                    }
+
+                                                    // その他の場合は単純に昇順に並べる
+                                                    return a.getSortOrder() - b.getSortOrder();
+                                                }).collect(Collectors.toList());
+
+        for (int i = 0; i < reorderedStories.size(); i++) {
+            reorderedStories.get(i).setSortOrder(i);
+        }
+
+        mapper.batchSave(reorderedStories);
+
+    }
+
     private Map<String, TaskItem> searchStoriesOfBacklogCategory(String backlogCategoryId, DynamoDBMapper mapper) {
         DynamoDBQueryExpression<BacklogCategoryIndexItem> query
                 = new DynamoDBQueryExpression<BacklogCategoryIndexItem>()
