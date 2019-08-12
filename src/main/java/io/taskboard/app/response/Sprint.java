@@ -10,7 +10,7 @@ public class Sprint {
     private String sprintId;
     private String sprintName;
     private String sprintStatus;
-    private Integer sortOrder;
+    private int sortOrder;
 
     private Map<String, Story> stories = new HashMap<>();
 

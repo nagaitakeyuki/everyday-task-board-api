@@ -59,6 +59,7 @@ public class TaskBoardRestController {
                 BacklogCategory backlogCategory = new BacklogCategory();
                 backlogCategory.setBacklogCategoryId(item.getItemId());
                 backlogCategory.setBacklogCategoryName(item.getName());
+                backlogCategory.setSortOrder(item.getSortOrder());
                 response.putBacklogCategory(backlogCategory.getBacklogCategoryId(), backlogCategory);
             });
 
@@ -144,6 +145,41 @@ public class TaskBoardRestController {
         return newSprint;
     }
 
+    @RequestMapping(value = "/sprints/backlogCategory", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public BacklogCategory addBacklogCategory(@RequestBody AddBacklogCategoryForm form) {
+
+        DynamoDBMapper mapper = createMapper();
+
+        // 全バックログカテゴリーのIDを取得する
+        DynamoDBQueryExpression<TaskItem> query
+                = new DynamoDBQueryExpression<TaskItem>()
+                .withKeyConditionExpression("UserId = :userId and begins_with(ItemId, :itemId)")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":itemId", new AttributeValue().withS("backlogCategory"));
+                    }
+                });
+
+        int newItemSortOrder = mapper.query(TaskItem.class, query).size();
+
+        TaskItem newBacklogCategoryItem = new TaskItem();
+        newBacklogCategoryItem.setUserId("user1");
+        newBacklogCategoryItem.setItemId("backlogCategory" + UUID.randomUUID().toString());
+        newBacklogCategoryItem.setName(form.getBacklogCategoryName());
+        newBacklogCategoryItem.setStatus("new");
+        newBacklogCategoryItem.setSortOrder(newItemSortOrder);
+
+        mapper.save(newBacklogCategoryItem);
+
+        BacklogCategory newBacklogCategory = new BacklogCategory();
+        newBacklogCategory.setBacklogCategoryId(newBacklogCategoryItem.getItemId());
+        newBacklogCategory.setBacklogCategoryName(newBacklogCategoryItem.getName());
+        newBacklogCategory.setSortOrder(newBacklogCategoryItem.getSortOrder());
+
+        return newBacklogCategory;
+    }
+
     @RequestMapping(value = "/sprints/storyBelongingToSprint", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public Story addStoryToSprint(@RequestBody AddStoryForm form) {
 
@@ -169,7 +205,7 @@ public class TaskBoardRestController {
         newStoryItem.setName(form.getStoryName());
         newStoryItem.setStatus("new");
         newStoryItem.setBaseSprintId(form.getSprintId());
-        newStoryItem.setSortOrder(newItemSortOrder++);
+        newStoryItem.setSortOrder(newItemSortOrder);
 
         mapper.save(newStoryItem);
 
