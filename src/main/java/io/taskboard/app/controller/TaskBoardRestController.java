@@ -338,18 +338,24 @@ public class TaskBoardRestController {
                 ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper)
                 : searchStoriesOfSprint(form.getSourceId(), mapper);
 
-        // 対象ストーリーの所属を変更する
         TaskItem changedStory = allStories.get(form.getStoryId());
+        boolean isUpForward = form.getNewIndex() - changedStory.getSortOrder() > 0;
         changedStory.setSortOrder(form.getNewIndex());
 
         // スプリント or バックログカテゴリー内の並び順を整える
         List<TaskItem> reorderedStories = new ArrayList<TaskItem>(allStories.values())
                                                 .stream()
                                                 .sorted((a, b) -> {
-                                                    // ユーザーにより変更されたタスクを優先的に前に並べる
-                                                    if(a.getSortOrder() == b.getSortOrder()
-                                                            && a.getItemId().equals(form.getStoryId())) {
-                                                        return -1;
+                                                    /* 同じ表示順の場合、
+                                                    　　順番の変更方向によって対象ストーリーを優先的に前 or 後に並べる */
+                                                    if(a.getSortOrder() == b.getSortOrder()){
+                                                        if (isUpForward) {
+                                                            if(a.getItemId().equals(form.getStoryId())) return 1;
+                                                            if(b.getItemId().equals(form.getStoryId())) return -1;
+                                                        } else {
+                                                            if(a.getItemId().equals(form.getStoryId())) return -1;
+                                                            if(b.getItemId().equals(form.getStoryId())) return 1;
+                                                        }
                                                     }
 
                                                     // その他の場合は単純に昇順に並べる
