@@ -258,6 +258,145 @@ public class TaskBoardRestController {
         return newStory;
     }
 
+    @RequestMapping(value = "/sprints/storyBelonging", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public void changeStoryBelonging(@RequestBody ChangeStoryBelongingForm form) {
+        // TODO: mapperのインスタンスはどの単位で生成するのが正しい？
+        DynamoDBMapper mapper = createMapper();
+
+        Map<String, TaskItem> srcSideStories = form.getSourceId().startsWith("backlogCategory")
+                                                ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper)
+                                                : searchStoriesOfSprint(form.getSourceId(), mapper);
+
+        Map<String, TaskItem> destSideStories = form.getDestinationId().startsWith("backlogCategory")
+                                                    ? searchStoriesOfBacklogCategory(form.getDestinationId(), mapper)
+                                                    : searchStoriesOfSprint(form.getDestinationId(), mapper);
+
+
+        // 対象ストーリーの所属を変更する
+        TaskItem changedStory = srcSideStories.get(form.getStoryId());
+
+        if (form.getSourceId().startsWith("backlogCategory")
+                && form.getDestinationId().startsWith("backlogCategory")) {
+
+            changedStory.setBacklogCategoryId(form.getDestinationId());
+
+        } else if (form.getSourceId().startsWith("backlogCategory")
+                    && form.getDestinationId().startsWith("sprint")) {
+
+            changedStory.setBacklogCategoryId(null);
+            changedStory.setBaseSprintId(form.getDestinationId());
+
+        } else if (form.getSourceId().startsWith("sprint")
+                && form.getDestinationId().startsWith("backlogCategory")) {
+
+            changedStory.setBaseSprintId(null);
+            changedStory.setBacklogCategoryId(form.getDestinationId());
+
+        } else {
+
+            changedStory.setBaseSprintId(form.getDestinationId());
+        }
+        changedStory.setSortOrder(form.getNewIndex());
+
+        srcSideStories.remove(form.getStoryId());
+        destSideStories.put(form.getStoryId(), changedStory);
+
+        // 移動元スプリント or バックログカテゴリーの抜け番を詰める
+        List<TaskItem> reorderdSrcSideStories = new ArrayList<>(srcSideStories.values());
+        for (int i = 0; i < reorderdSrcSideStories.size(); i++) {
+            reorderdSrcSideStories.get(i).setSortOrder(i);
+        }
+
+        // 移動先スプリント or バックログカテゴリーの並び順を整える
+        List<TaskItem> reorderedDestSideStories = new ArrayList<TaskItem>(destSideStories.values())
+                                                    .stream()
+                                                    .sorted((a, b) -> {
+                                                        // ユーザーにより変更されたタスクを優先的に前に並べる
+                                                        if(a.getSortOrder() == b.getSortOrder()
+                                                                && a.getItemId().equals(form.getStoryId())) {
+                                                            return -1;
+                                                        }
+
+                                                        // その他の場合は単純に昇順に並べる
+                                                        return a.getSortOrder() - b.getSortOrder();
+                                                    }).collect(Collectors.toList());
+
+        for (int i = 0; i < reorderedDestSideStories.size(); i++) {
+            reorderedDestSideStories.get(i).setSortOrder(i);
+        }
+
+        mapper.batchSave(Stream.concat(reorderdSrcSideStories.stream(), reorderedDestSideStories.stream())
+                                .collect(Collectors.toList()));
+
+    }
+
+    private Map<String, TaskItem> searchStoriesOfBacklogCategory(String backlogCategoryId, DynamoDBMapper mapper) {
+        DynamoDBQueryExpression<BacklogCategoryIndexItem> query
+                = new DynamoDBQueryExpression<BacklogCategoryIndexItem>()
+                .withIndexName("BacklogCategoryIndex")
+                .withKeyConditionExpression("UserId = :userId and BacklogCategoryId = :backlogCategoryId")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":backlogCategoryId", new AttributeValue().withS(backlogCategoryId));
+                    }
+                });
+
+        List<BacklogCategoryIndexItem> storyIds = mapper.query(BacklogCategoryIndexItem.class, query);
+
+        // 各ストーリーの詳細を取得する
+        List<TaskItem> storiesToGet = storyIds.stream().map(storyId -> {
+                                                            TaskItem item = new TaskItem();
+                                                            item.setUserId("user1");
+                                                            item.setItemId(storyId.getItemId());
+                                                            return item;
+                                                        }).collect(Collectors.toList());
+
+        List<Object> searchResult = mapper.batchLoad(storiesToGet).get("TaskBoard");
+
+        if (searchResult == null) {
+            return new HashMap<String, TaskItem>();
+        } else {
+            return searchResult
+                    .stream()
+                    .map(story -> (TaskItem) story)
+                    .collect(Collectors.toMap(story -> story.getItemId(), story -> story));
+        }
+    }
+
+    private Map<String, TaskItem> searchStoriesOfSprint(String sprintId, DynamoDBMapper mapper) {
+        DynamoDBQueryExpression<SprintIndexItem> query
+                = new DynamoDBQueryExpression<SprintIndexItem>()
+                .withIndexName("SprintIndex")
+                .withKeyConditionExpression("UserId = :userId and BaseSprintId = :baseSprintId")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":baseSprintId", new AttributeValue().withS(sprintId));
+                    }
+                });
+
+        List<SprintIndexItem> storyIds = mapper.query(SprintIndexItem.class, query);
+
+        // 各ストーリーの詳細を取得する
+        List<TaskItem> storiesToGet = storyIds.stream().map(storyId -> {
+                                                                TaskItem item = new TaskItem();
+                                                                item.setUserId("user1");
+                                                                item.setItemId(storyId.getItemId());
+                                                                return item;
+                                                            }).collect(Collectors.toList());
+
+        List<Object> searchResult = mapper.batchLoad(storiesToGet).get("TaskBoard");
+
+        if (searchResult == null) {
+            return new HashMap<String, TaskItem>();
+        } else {
+            return searchResult
+                    .stream()
+                    .map(story -> (TaskItem) story)
+                    .collect(Collectors.toMap(story -> story.getItemId(), story -> story));
+        }
+    }
 
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
