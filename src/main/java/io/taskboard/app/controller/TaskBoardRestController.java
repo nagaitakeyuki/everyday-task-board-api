@@ -258,6 +258,27 @@ public class TaskBoardRestController {
         return newStory;
     }
 
+    @RequestMapping(value = "/sprints/storyName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Story changeStoryName(@RequestBody ChangeStoryNameForm form) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem storyItem = mapper.load(TaskItem.class, "user1", form.getStoryId());
+        storyItem.setName(form.getStoryName());
+
+        mapper.save(storyItem);
+
+        Story newStory = new Story();
+        newStory.setStoryId(storyItem.getItemId());
+        newStory.setStoryName(storyItem.getName());
+        newStory.setStoryStatus(storyItem.getStatus());
+        newStory.setBaseSprintId(storyItem.getBaseSprintId());
+        newStory.setBacklogCategoryId(storyItem.getBacklogCategoryId());
+        newStory.setSortOrder(storyItem.getSortOrder());
+
+        return newStory;
+
+    }
+
     @RequestMapping(value = "/sprints/storyBelonging", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeStoryBelonging(@RequestBody ChangeStoryBelongingForm form) {
         // TODO: mapperのインスタンスはどの単位で生成するのが正しい？
