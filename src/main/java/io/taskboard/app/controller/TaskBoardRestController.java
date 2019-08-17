@@ -12,6 +12,8 @@ import io.taskboard.domain.BacklogCategoryIndexItem;
 import io.taskboard.domain.SprintIndexItem;
 import io.taskboard.domain.StoryIndexItem;
 import io.taskboard.domain.TaskItem;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,8 +22,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @RestController
-@CrossOrigin(origins = "http://127.0.0.1:5500")
+@CrossOrigin(origins = "*")
 public class TaskBoardRestController {
+
+    @Autowired
+    private Environment appProps;
 
     @RequestMapping("/sprints")
     public AllDataResponse getSprints() {
@@ -578,8 +583,9 @@ public class TaskBoardRestController {
     private DynamoDBMapper createMapper() {
         AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard()
                 .withEndpointConfiguration(
-                        new AwsClientBuilder.EndpointConfiguration("http://localhost:8000",
-                                "ap-northeast-1"))
+                        new AwsClientBuilder.EndpointConfiguration(
+                                this.appProps.getProperty("aws.dynamodb.endpoint"),
+                                this.appProps.getProperty("aws.region")))
                 .build();
 
         return new DynamoDBMapper(client);
