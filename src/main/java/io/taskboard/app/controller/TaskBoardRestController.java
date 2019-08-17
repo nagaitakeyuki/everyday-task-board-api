@@ -263,6 +263,19 @@ public class TaskBoardRestController {
         return newStory;
     }
 
+    @RequestMapping(value = "/sprints/backlogCategoryName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public BacklogCategory changeBacklogCategoryName(@RequestBody ChangeBacklogCategoryNameForm form) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem blcItem = mapper.load(TaskItem.class, "user1", form.getBacklogCategoryId());
+        blcItem.setName(form.getBacklogCategoryName());
+
+        mapper.save(blcItem);
+
+        return toBacklogCategory(blcItem);
+
+    }
+
     @RequestMapping(value = "/sprints/storyName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public Story changeStoryName(@RequestBody ChangeStoryNameForm form) {
         DynamoDBMapper mapper = createMapper();
@@ -686,6 +699,16 @@ public class TaskBoardRestController {
                     .map(story -> (TaskItem) story)
                     .collect(Collectors.toMap(story -> story.getItemId(), story -> story));
         }
+    }
+
+    private BacklogCategory toBacklogCategory(TaskItem dbItem) {
+        BacklogCategory bc = new BacklogCategory();
+
+        bc.setBacklogCategoryId(dbItem.getItemId());
+        bc.setBacklogCategoryName(dbItem.getName());
+        bc.setSortOrder(dbItem.getSortOrder());
+
+        return bc;
     }
 
 }
