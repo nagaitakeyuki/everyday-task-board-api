@@ -297,6 +297,20 @@ public class TaskBoardRestController {
 
     }
 
+    @RequestMapping(value = "/sprints/story", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Story updateStory(@RequestBody UpdateStoryForm form) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem storyItem = mapper.load(TaskItem.class, "user1", form.getStoryId());
+        storyItem.setName(form.getStoryName());
+        storyItem.setStatus(form.getStoryStatus());
+
+        mapper.save(storyItem);
+
+        return toStory(storyItem);
+
+    }
+
     @RequestMapping(value = "/sprints/storyBelonging", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeStoryBelonging(@RequestBody ChangeStoryBelongingForm form) {
         // TODO: mapperのインスタンスはどの単位で生成するのが正しい？
@@ -710,5 +724,19 @@ public class TaskBoardRestController {
 
         return bc;
     }
+
+    private Story toStory(TaskItem dbItem) {
+        Story story = new Story();
+
+        story.setStoryId(dbItem.getItemId());
+        story.setStoryName(dbItem.getName());
+        story.setStoryStatus(dbItem.getStatus());
+        story.setBaseSprintId(dbItem.getBaseSprintId());
+        story.setBacklogCategoryId(dbItem.getBacklogCategoryId());
+        story.setSortOrder(dbItem.getSortOrder());
+
+        return story;
+    }
+
 
 }
