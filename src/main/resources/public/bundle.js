@@ -1267,6 +1267,16 @@ exports.default = (_getSprints$setSprint = {
     type: _types2.default.SET_NEW_BACKLOG_CATEGORY,
     payload: payload
   };
+}), _defineProperty(_getSprints$setSprint, 'changeBacklogCategoryName', function changeBacklogCategoryName(payload) {
+  return {
+    type: _types2.default.CHANGE_BACKLOG_CATEGORY_NAME,
+    payload: payload
+  };
+}), _defineProperty(_getSprints$setSprint, 'setBacklogCategoryName', function setBacklogCategoryName(payload) {
+  return {
+    type: _types2.default.SET_BACKLOG_CATEGORY_NAME,
+    payload: payload
+  };
 }), _defineProperty(_getSprints$setSprint, 'addTasks', function addTasks(payload) {
   return {
     type: _types2.default.ADD_TASKS,
@@ -11499,6 +11509,8 @@ exports.default = {
   SET_NEW_SPRINT: 'SET_NEW_SPRINT',
   ADD_BACKLOG_CATEGORY: 'ADD_BACKLOG_CATEGORY',
   SET_NEW_BACKLOG_CATEGORY: 'SET_NEW_BACKLOG_CATEGORY',
+  CHANGE_BACKLOG_CATEGORY_NAME: 'CHANGE_BACKLOG_CATEGORY_NAME',
+  SET_BACKLOG_CATEGORY_NAME: 'SET_BACKLOG_CATEGORY_NAME',
   ADD_STORY: 'ADD_STORY',
   SET_STORY: 'SET_STORY',
   ADD_STORY_TO_BACKLOGCATEGORY: 'ADD_STORY_TO_BACKLOGCATEGORY',
@@ -19652,7 +19664,7 @@ var Story = function (_Component) {
     }
 
     return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = Story.__proto__ || Object.getPrototypeOf(Story)).call.apply(_ref, [this].concat(args))), _this), _this.state = {
-      idEditing: false
+      isEditing: false
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
@@ -19670,7 +19682,7 @@ var Story = function (_Component) {
       var changeStoryName = function changeStoryName() {
         // TODO: 変更前の内容が一瞬表示されてしまう。他に方法ないのか。
         dispatch(_actions2.default.changeStoryName({ storyId: story.storyId, storyName: storyNameEl.value }));
-        _this2.setState({ idEditing: false });
+        _this2.setState({ isEditing: false });
       };
 
       return _react2.default.createElement(
@@ -19683,11 +19695,13 @@ var Story = function (_Component) {
             _extends({}, provided.draggableProps, provided.dragHandleProps, {
               ref: provided.innerRef
             }),
-            _this2.state.idEditing ? _react2.default.createElement(
+            _this2.state.isEditing ? _react2.default.createElement(
               'div',
               { style: { border: "1px solid whitesmoke", borderRadius: "5px", margin: "3px", background: "whitesmoke", cursor: "move" } },
-              _react2.default.createElement('input', { type: 'text', name: 'storyName', defaultValue: story.storyName, className: 'form-control form-control-sm p-0', ref: function ref(el) {
-                  return storyNameEl = el;
+              _react2.default.createElement('input', { type: 'text', name: 'storyName', defaultValue: story.storyName,
+                className: 'form-control form-control-sm p-0',
+                ref: function ref(el) {
+                  if (el) el.select();storyNameEl = el;
                 } }),
               _react2.default.createElement(
                 'button',
@@ -19699,7 +19713,7 @@ var Story = function (_Component) {
               _react2.default.createElement(
                 'button',
                 { type: 'button', className: 'btn btn-secondary btn-sm ml-1', onClick: function onClick() {
-                    return _this2.setState({ idEditing: false });
+                    return _this2.setState({ isEditing: false });
                   } },
                 '\u30AD\u30E3\u30F3\u30BB\u30EB'
               )
@@ -19707,7 +19721,7 @@ var Story = function (_Component) {
               'div',
               { style: { border: "1px solid whitesmoke", borderRadius: "5px", margin: "3px", background: "whitesmoke", cursor: "move" },
                 onClick: function onClick() {
-                  _this2.setState({ idEditing: true });
+                  _this2.setState({ isEditing: true });
                 } },
               story.storyName
             )
@@ -53365,6 +53379,17 @@ exports.default = function () {
 
                         return _extends({}, state, { backlogCategories: copiedBacklogCategories });
                   }
+            case _types2.default.SET_BACKLOG_CATEGORY_NAME:
+                  {
+                        var changedBacklogCategory = action.payload.changedBacklogCategory;
+
+
+                        var copied = copyBacklogCategoriesMap(state.backlogCategories);
+
+                        copied.get(changedBacklogCategory.backlogCategoryId).backlogCategoryName = changedBacklogCategory.backlogCategoryName;
+
+                        return _extends({}, state, { backlogCategories: copied });
+                  }
             case _types2.default.SET_STORY:
                   {
                         var _action$payload = action.payload,
@@ -53430,7 +53455,21 @@ exports.default = function () {
                         var dest = destSideCopy.get(destinationId);
 
                         var _changedStory = src.stories.get(_storyId2);
+
+                        if (sourceId.startsWith("backlogCategory") && destinationId.startsWith("backlogCategory")) {
+                              _changedStory.backlogCategoryId = destinationId;
+                        } else if (sourceId.startsWith("backlogCategory") && destinationId.startsWith("sprint")) {
+                              _changedStory.backlogCategoryId = null;
+                              _changedStory.baseSprintId = destinationId;
+                        } else if (sourceId.startsWith("sprint") && destinationId.startsWith("backlogCategory")) {
+                              _changedStory.baseSprintId = null;
+                              _changedStory.backlogCategoryId = destinationId;
+                        } else {
+                              _changedStory.baseSprintId = destinationId;
+                        }
+
                         _changedStory.sortOrder = newIndex;
+
                         dest.stories.set(_changedStory.storyId, _changedStory);
                         src.stories.delete(_storyId2);
 
@@ -53974,20 +54013,20 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.ADD_STORY) {
+      if (action.type === _types2.default.CHANGE_BACKLOG_CATEGORY_NAME) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee4() {
-          var newStory;
+          var changedBacklogCategory;
           return regeneratorRuntime.wrap(function _callee4$(_context4) {
             while (1) {
               switch (_context4.prev = _context4.next) {
                 case 0:
                   _context4.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/storyBelongingToSprint");
+                  return _api2.default.sprints.post(action.payload, "/backlogCategoryName");
 
                 case 2:
-                  newStory = _context4.sent;
+                  changedBacklogCategory = _context4.sent;
 
-                  dispatch(_actions2.default.setStory(_extends({}, action.payload, { newStory: newStory })));
+                  dispatch(_actions2.default.setBacklogCategoryName(_extends({}, action.payload, { changedBacklogCategory: changedBacklogCategory })));
 
                 case 4:
                 case 'end':
@@ -53998,7 +54037,7 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.ADD_STORY_TO_BACKLOGCATEGORY) {
+      if (action.type === _types2.default.ADD_STORY) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee5() {
           var newStory;
           return regeneratorRuntime.wrap(function _callee5$(_context5) {
@@ -54006,12 +54045,12 @@ exports.default = function (store) {
               switch (_context5.prev = _context5.next) {
                 case 0:
                   _context5.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/storyBelongingToBacklogCategory");
+                  return _api2.default.sprints.post(action.payload, "/storyBelongingToSprint");
 
                 case 2:
                   newStory = _context5.sent;
 
-                  dispatch(_actions2.default.setStoryToBacklogCategory(_extends({}, action.payload, { newStory: newStory })));
+                  dispatch(_actions2.default.setStory(_extends({}, action.payload, { newStory: newStory })));
 
                 case 4:
                 case 'end':
@@ -54022,20 +54061,20 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.CHANGE_STORY_NAME) {
+      if (action.type === _types2.default.ADD_STORY_TO_BACKLOGCATEGORY) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee6() {
-          var changedStory;
+          var newStory;
           return regeneratorRuntime.wrap(function _callee6$(_context6) {
             while (1) {
               switch (_context6.prev = _context6.next) {
                 case 0:
                   _context6.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/storyName");
+                  return _api2.default.sprints.post(action.payload, "/storyBelongingToBacklogCategory");
 
                 case 2:
-                  changedStory = _context6.sent;
+                  newStory = _context6.sent;
 
-                  dispatch(_actions2.default.setStoryName(_extends({}, action.payload, { changedStory: changedStory })));
+                  dispatch(_actions2.default.setStoryToBacklogCategory(_extends({}, action.payload, { newStory: newStory })));
 
                 case 4:
                 case 'end':
@@ -54046,16 +54085,22 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.CHANGE_STORY_BELONGING) {
+      if (action.type === _types2.default.CHANGE_STORY_NAME) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee7() {
+          var changedStory;
           return regeneratorRuntime.wrap(function _callee7$(_context7) {
             while (1) {
               switch (_context7.prev = _context7.next) {
                 case 0:
                   _context7.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/storyBelonging");
+                  return _api2.default.sprints.post(action.payload, "/storyName");
 
                 case 2:
+                  changedStory = _context7.sent;
+
+                  dispatch(_actions2.default.setStoryName(_extends({}, action.payload, { changedStory: changedStory })));
+
+                case 4:
                 case 'end':
                   return _context7.stop();
               }
@@ -54064,14 +54109,14 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.CHANGE_STORY_SORT_ORDER) {
+      if (action.type === _types2.default.CHANGE_STORY_BELONGING) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee8() {
           return regeneratorRuntime.wrap(function _callee8$(_context8) {
             while (1) {
               switch (_context8.prev = _context8.next) {
                 case 0:
                   _context8.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/storySortOrder");
+                  return _api2.default.sprints.post(action.payload, "/storyBelonging");
 
                 case 2:
                 case 'end':
@@ -54082,14 +54127,14 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.CHANGE_SORT_ORDER) {
+      if (action.type === _types2.default.CHANGE_STORY_SORT_ORDER) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee9() {
           return regeneratorRuntime.wrap(function _callee9$(_context9) {
             while (1) {
               switch (_context9.prev = _context9.next) {
                 case 0:
                   _context9.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/taskSortOrder");
+                  return _api2.default.sprints.post(action.payload, "/storySortOrder");
 
                 case 2:
                 case 'end':
@@ -54100,14 +54145,14 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.CHANGE_TASK_STATUS) {
+      if (action.type === _types2.default.CHANGE_SORT_ORDER) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee10() {
           return regeneratorRuntime.wrap(function _callee10$(_context10) {
             while (1) {
               switch (_context10.prev = _context10.next) {
                 case 0:
                   _context10.next = 2;
-                  return _api2.default.sprints.post(action.payload, "/taskStatus");
+                  return _api2.default.sprints.post(action.payload, "/taskSortOrder");
 
                 case 2:
                 case 'end':
@@ -54118,28 +54163,46 @@ exports.default = function (store) {
         }))();
       }
 
-      if (action.type === _types2.default.ADD_TASKS) {
+      if (action.type === _types2.default.CHANGE_TASK_STATUS) {
         ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee11() {
-          var response;
           return regeneratorRuntime.wrap(function _callee11$(_context11) {
             while (1) {
               switch (_context11.prev = _context11.next) {
                 case 0:
                   _context11.next = 2;
+                  return _api2.default.sprints.post(action.payload, "/taskStatus");
+
+                case 2:
+                case 'end':
+                  return _context11.stop();
+              }
+            }
+          }, _callee11, undefined);
+        }))();
+      }
+
+      if (action.type === _types2.default.ADD_TASKS) {
+        ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee12() {
+          var response;
+          return regeneratorRuntime.wrap(function _callee12$(_context12) {
+            while (1) {
+              switch (_context12.prev = _context12.next) {
+                case 0:
+                  _context12.next = 2;
                   return _api2.default.sprints.post(action.payload, "/tasks");
 
                 case 2:
-                  response = _context11.sent;
+                  response = _context12.sent;
 
 
                   dispatch(_actions2.default.setAddedTasks(_extends({}, action.payload, { newTasks: response.newTasks })));
 
                 case 4:
                 case 'end':
-                  return _context11.stop();
+                  return _context12.stop();
               }
             }
-          }, _callee11, undefined);
+          }, _callee12, undefined);
         }))();
       }
 
@@ -61088,7 +61151,8 @@ var BacklogCategory = function (_Component) {
     }
 
     return _ret = (_temp = (_this = _possibleConstructorReturn(this, (_ref = BacklogCategory.__proto__ || Object.getPrototypeOf(BacklogCategory)).call.apply(_ref, [this].concat(args))), _this), _this.state = {
-      isOpenStoryAdd: false
+      isOpenStoryAdd: false,
+      isEditing: false
     }, _temp), _possibleConstructorReturn(_this, _ret);
   }
 
@@ -61113,7 +61177,13 @@ var BacklogCategory = function (_Component) {
       };
 
       var closeAddStory = function closeAddStory() {
-        _this2.setState({ isOpenStoryAdd: false });
+        _this2.setState(_extends({}, _this2.state, { isOpenStoryAdd: false }));
+      };
+
+      var backlogCategoryNameEl = void 0;
+      var changeBacklogCategoryName = function changeBacklogCategoryName() {
+        dispatch(_actions2.default.changeBacklogCategoryName({ backlogCategoryId: backlogCategory.backlogCategoryId, backlogCategoryName: backlogCategoryNameEl.value }));
+        _this2.setState(_extends({}, _this2.state, { isEditing: false }));
       };
 
       return _react2.default.createElement(
@@ -61128,23 +61198,60 @@ var BacklogCategory = function (_Component) {
               style: { border: "1px solid lightgray", borderRadius: "5px", margin: "5px", background: "lightgray" } }),
             _react2.default.createElement(
               'div',
-              { style: { margin: "2px", cursor: "move" } },
-              _react2.default.createElement('img', { src: '../resource/plus.png', style: { cursor: "pointer", verticalAlign: "middle" },
-                onClick: function onClick() {
-                  return _this2.setState({ isOpenStoryAdd: true });
-                } }),
-              _react2.default.createElement(
-                'span',
-                { style: { verticalAlign: "middle" } },
-                backlogCategory.backlogCategoryName
+              { style: { position: "relative", margin: "2px", cursor: "move" } },
+              _this2.state.isEditing ? _react2.default.createElement(
+                _react.Fragment,
+                null,
+                _react2.default.createElement('input', { type: 'text', name: 'backlogCategoryName', defaultValue: backlogCategory.backlogCategoryName,
+                  className: 'form-control form-control-sm p-0',
+                  ref: function ref(el) {
+                    if (el) el.select();backlogCategoryNameEl = el;
+                  } }),
+                _react2.default.createElement(
+                  'button',
+                  { type: 'button', className: 'btn btn-secondary btn-sm', onClick: function onClick() {
+                      return changeBacklogCategoryName();
+                    } },
+                  '\u5909\u66F4'
+                ),
+                _react2.default.createElement(
+                  'button',
+                  { type: 'button', className: 'btn btn-secondary btn-sm ml-1', onClick: function onClick() {
+                      return _this2.setState(_extends({}, _this2.state, { isEditing: false }));
+                    } },
+                  '\u30AD\u30E3\u30F3\u30BB\u30EB'
+                )
+              ) : _react2.default.createElement(
+                _react.Fragment,
+                null,
+                _react2.default.createElement('img', { src: '../resource/plus.png', style: { cursor: "pointer", verticalAlign: "middle" },
+                  onClick: function onClick() {
+                    return _this2.setState(_extends({}, _this2.state, { isOpenStoryAdd: true }));
+                  } }),
+                _react2.default.createElement(
+                  'span',
+                  { style: { verticalAlign: "middle" },
+                    onClick: function onClick() {
+                      return _this2.setState(_extends({}, _this2.state, { isEditing: true }));
+                    } },
+                  backlogCategory.backlogCategoryName
+                ),
+                _react2.default.createElement('img', { src: '../resource/plus.png',
+                  role: 'button', className: 'btn', 'data-toggle': 'collapse',
+                  'data-target': '#stories-' + backlogCategory.backlogCategoryId,
+                  style: { position: "absolute", right: "2px", cursor: "pointer", verticalAlign: "middle" } })
               )
             ),
-            backlogCategory.stories ? Array.from(backlogCategory.stories.values()).sort(function (a, b) {
-              return a.sortOrder - b.sortOrder;
-            }).map(function (story) {
-              return _react2.default.createElement(_story2.default, { story: story, key: story.storyId });
-            }) : null,
-            provided.placeholder,
+            _react2.default.createElement(
+              'div',
+              { className: 'collapse show', id: 'stories-' + backlogCategory.backlogCategoryId },
+              backlogCategory.stories ? Array.from(backlogCategory.stories.values()).sort(function (a, b) {
+                return a.sortOrder - b.sortOrder;
+              }).map(function (story) {
+                return _react2.default.createElement(_story2.default, { story: story, key: story.storyId });
+              }) : null,
+              provided.placeholder
+            ),
             _react2.default.createElement(
               _reactModal2.default,
               {
@@ -61547,7 +61654,7 @@ exports.default = (0, _reactRedux.connect)(function (state) {
       null,
       _react2.default.createElement(
         'div',
-        { style: { width: "100%", height: "100px", background: "#0099cc", borderRadius: "5px", position: "relative" } },
+        { style: { width: "100%", height: "100px", background: "#87cefa", borderRadius: "5px", position: "relative" } },
         _react2.default.createElement(
           'div',
           { style: { width: "80%" } },
@@ -61697,7 +61804,8 @@ exports.default = function (_ref) {
         }),
         _react2.default.createElement(
           'div',
-          { style: { width: "100px", height: "100px", background: "#0099cc", borderRadius: "5px", marginRight: "5px", marginBottom: "5px", cursor: 'move', wordWrap: "break-word" } },
+          { style: { width: "100px", height: "100px", background: "#87cefa", borderRadius: "5px",
+              marginRight: "5px", marginBottom: "5px", cursor: 'move', wordWrap: "break-word" } },
           task.taskName
         )
       );
