@@ -424,6 +424,27 @@ public class TaskBoardRestController {
 
     }
 
+    @RequestMapping(value = "/sprints/task", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public void updateTask(@RequestBody UpdateTaskForm form) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem taskItem = mapper.load(TaskItem.class, "user1", form.getTaskId());
+        taskItem.setName(form.getTaskName());
+
+        mapper.save(taskItem);
+
+    }
+
+    @RequestMapping(value = "/sprints/task", method= RequestMethod.DELETE)
+    public void deleteTask(@RequestParam("taskId") String taskId) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem taskItem = mapper.load(TaskItem.class, "user1", taskId);
+
+        mapper.delete(taskItem);
+
+    }
+
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
 
