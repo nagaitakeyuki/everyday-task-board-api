@@ -311,6 +311,22 @@ public class TaskBoardRestController {
 
     }
 
+    @RequestMapping(value = "/sprints/story", method= RequestMethod.DELETE)
+    public void deleteStory(@RequestParam("storyId") String storyId) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem storyItem = mapper.load(TaskItem.class, "user1", storyId);
+
+        List<TaskItem> deleteItems = new ArrayList<>();
+
+        deleteItems.add(storyItem);
+        deleteItems.addAll(searchTasksOfStory(storyId, mapper).values());
+
+        mapper.batchDelete(deleteItems);
+
+    }
+
+
     @RequestMapping(value = "/sprints/storyBelonging", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
     public void changeStoryBelonging(@RequestBody ChangeStoryBelongingForm form) {
         // TODO: mapperのインスタンスはどの単位で生成するのが正しい？
@@ -413,34 +429,7 @@ public class TaskBoardRestController {
 
         DynamoDBMapper mapper = createMapper();
 
-        // 対象タスクのストーリーに属する、全タスクのIDを取得する
-        DynamoDBQueryExpression<StoryIndexItem> query
-                = new DynamoDBQueryExpression<StoryIndexItem>()
-                        .withIndexName("StoryIndex")
-                        .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
-                        .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
-                            {
-                                put(":userId", new AttributeValue().withS("user1"));
-                                put(":baseStoryId", new AttributeValue().withS(form.getStoryId()));
-                            }
-                        });
-
-        List<StoryIndexItem> taskIds = mapper.query(StoryIndexItem.class, query);
-
-        // 各タスクの詳細を取得する
-        List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
-                                                            TaskItem item = new TaskItem();
-                                                            item.setUserId("user1");
-                                                            item.setItemId(taskId.getItemId());
-                                                            return item;
-                                                        })
-                                                    .collect(Collectors.toList());
-
-        Map<String, TaskItem> tasks = mapper.batchLoad(tasksToGet).get("TaskBoard")
-                                            .stream()
-                                            .map(task -> (TaskItem) task)
-                                            .collect(Collectors.toMap(task -> task.getItemId(), task -> task));
-
+        Map<String, TaskItem> tasks = searchTasksOfStory(form.getStoryId(), mapper);
 
         TaskItem statusChangedTask = tasks.get(form.getTaskId());
 
@@ -714,6 +703,42 @@ public class TaskBoardRestController {
                     .collect(Collectors.toMap(story -> story.getItemId(), story -> story));
         }
     }
+
+    private Map<String, TaskItem> searchTasksOfStory(String storyId, DynamoDBMapper mapper) {
+        // 対象タスクのストーリーに属する、全タスクのIDを取得する
+        DynamoDBQueryExpression<StoryIndexItem> query
+                = new DynamoDBQueryExpression<StoryIndexItem>()
+                .withIndexName("StoryIndex")
+                .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
+                .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
+                    {
+                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":baseStoryId", new AttributeValue().withS(storyId));
+                    }
+                });
+
+        List<StoryIndexItem> taskIds = mapper.query(StoryIndexItem.class, query);
+
+        // 各タスクの詳細を取得する
+        List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
+                                                            TaskItem item = new TaskItem();
+                                                            item.setUserId("user1");
+                                                            item.setItemId(taskId.getItemId());
+                                                            return item;
+                                                        }).collect(Collectors.toList());
+
+        List<Object> searchResult = mapper.batchLoad(tasksToGet).get("TaskBoard");
+
+        if (searchResult == null) {
+            return new HashMap<String, TaskItem>();
+        } else {
+            return searchResult
+                    .stream()
+                    .map(story -> (TaskItem) story)
+                    .collect(Collectors.toMap(story -> story.getItemId(), story -> story));
+        }
+    }
+
 
     private BacklogCategory toBacklogCategory(TaskItem dbItem) {
         BacklogCategory bc = new BacklogCategory();
