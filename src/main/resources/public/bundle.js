@@ -1287,6 +1287,16 @@ exports.default = (_getSprints$setSprint = {
     type: _types2.default.SET_ADDED_TASKS,
     payload: payload
   };
+}), _defineProperty(_getSprints$setSprint, 'deleteStory', function deleteStory(payload) {
+  return {
+    type: _types2.default.DELETE_STORY,
+    payload: payload
+  };
+}), _defineProperty(_getSprints$setSprint, 'deleteStoryFromState', function deleteStoryFromState(payload) {
+  return {
+    type: _types2.default.DELETE_STORY_FROM_STATE,
+    payload: payload
+  };
 }), _getSprints$setSprint);
 
 /***/ }),
@@ -13713,8 +13723,9 @@ exports.default = {
   UPDATE_STORY: 'UPDATE_STORY',
   SET_UPDATED_STORY: 'SET_UPDATED_STORY',
   ADD_TASKS: 'ADD_TASKS',
-  SET_ADDED_TASKS: 'SET_ADDED_TASKS'
-
+  SET_ADDED_TASKS: 'SET_ADDED_TASKS',
+  DELETE_STORY: 'DELETE_STORY',
+  DELETE_STORY_FROM_STATE: 'DELETE_STORY_FROM_STATE'
 };
 
 /***/ }),
@@ -19685,6 +19696,12 @@ var Story = function (_Component) {
         _this2.setState({ isEditing: false });
       };
 
+      var deleteStory = function deleteStory() {
+        var doDelete = confirm("ストーリーを削除しますか？紐づくタスクも併せて削除されます。");
+
+        if (doDelete) dispatch(_actions2.default.deleteStory({ story: story }));
+      };
+
       return _react2.default.createElement(
         _reactBeautifulDnd.Draggable,
         {
@@ -19720,11 +19737,20 @@ var Story = function (_Component) {
             ) : _react2.default.createElement(
               'div',
               { style: { border: "1px solid whitesmoke", borderRadius: "5px", margin: "3px",
-                  background: "whitesmoke", cursor: "move", textDecoration: story.storyStatus === "end" ? "line-through" : "" },
+                  background: "whitesmoke", cursor: "move", position: "relative" } },
+              _react2.default.createElement(
+                'span',
+                { style: { textDecoration: story.storyStatus === "end" ? "line-through" : "" },
+                  onClick: function onClick() {
+                    _this2.setState({ isEditing: true });
+                  } },
+                story.storyName
+              ),
+              _react2.default.createElement('img', { src: '../resource/trash-can.png',
+                style: { position: "absolute", right: "2px", top: "4px", cursor: "pointer" },
                 onClick: function onClick() {
-                  _this2.setState({ isEditing: true });
-                } },
-              story.storyName
+                  return deleteStory();
+                } })
             )
           );
         }
@@ -53642,7 +53668,22 @@ exports.default = function () {
                         });
 
                         return _extends({}, state, { sprints: _copiedSprints7, currentSprint: _copiedSprints7.get(_sprintId5) });
-                  }default:
+                  }
+            case _types2.default.DELETE_STORY_FROM_STATE:
+                  {
+                        var _story2 = action.payload.story;
+
+
+                        var _isBacklogStory = !!_story2.backlogCategoryId;
+
+                        var _copiedSideState = _isBacklogStory ? copyBacklogCategoriesMap(state.backlogCategories) : copySprintsMap(state.sprints);
+
+                        var _parentId = _isBacklogStory ? _story2.backlogCategoryId : _story2.baseSprintId;
+                        _copiedSideState.get(_parentId).stories.delete(_story2.storyId);
+
+                        return _isBacklogStory ? _extends({}, state, { backlogCategories: _copiedSideState }) : _extends({}, state, { sprints: _copiedSideState });
+                  }
+            default:
                   return state;
       }
 };
@@ -54195,6 +54236,29 @@ exports.default = function (store) {
               }
             }
           }, _callee13, undefined);
+        }))();
+      }
+
+      if (action.type === _types2.default.DELETE_STORY) {
+        ;_asyncToGenerator( /*#__PURE__*/regeneratorRuntime.mark(function _callee14() {
+          var story;
+          return regeneratorRuntime.wrap(function _callee14$(_context14) {
+            while (1) {
+              switch (_context14.prev = _context14.next) {
+                case 0:
+                  story = action.payload.story;
+                  _context14.next = 3;
+                  return _api2.default.sprints.delete('/story?storyId=' + story.storyId);
+
+                case 3:
+                  dispatch(_actions2.default.deleteStoryFromState(_extends({}, action.payload)));
+
+                case 4:
+                case 'end':
+                  return _context14.stop();
+              }
+            }
+          }, _callee14, undefined);
         }))();
       }
 
@@ -61228,10 +61292,10 @@ var BacklogCategory = function (_Component) {
                     } },
                   backlogCategory.backlogCategoryName
                 ),
-                _react2.default.createElement('img', { src: '../resource/plus.png',
+                _react2.default.createElement('img', { src: '../resource/triangle-down.png',
                   role: 'button', className: 'btn', 'data-toggle': 'collapse',
                   'data-target': '#stories-' + backlogCategory.backlogCategoryId,
-                  style: { position: "absolute", right: "2px", cursor: "pointer", verticalAlign: "middle" } })
+                  style: { position: "absolute", right: "0px", cursor: "pointer" } })
               )
             ),
             _react2.default.createElement(
@@ -61780,7 +61844,7 @@ var TaskBoardStoryCell = function (_Component) {
                 { name: 'storyStatus', className: 'form-control',
                   id: 'storyStatus-' + story.storyId, ref: function ref(el) {
                     return storyStatusEl = el;
-                  } },
+                  }, defaultValue: story.storyStatus },
                 _react2.default.createElement(
                   'option',
                   { value: 'new' },
@@ -61918,7 +61982,8 @@ exports.default = function (_ref) {
         _react2.default.createElement(
           'div',
           { style: { width: "100px", height: "100px", background: "#87cefa", borderRadius: "5px",
-              marginRight: "5px", marginBottom: "5px", cursor: 'move', wordWrap: "break-word" } },
+              marginRight: "5px", marginBottom: "5px", cursor: 'move', wordWrap: "break-word",
+              textDecoration: task.taskStatus === "end" ? "line-through" : "" } },
           task.taskName
         )
       );
