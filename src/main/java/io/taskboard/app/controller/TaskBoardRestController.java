@@ -55,6 +55,8 @@ public class TaskBoardRestController {
                 sprint.setSprintName(item.getName());
                 sprint.setSprintStatus(item.getStatus());
                 sprint.setSortOrder(item.getSortOrder());
+                sprint.setStartDate(item.getStartDate());
+                sprint.setEndDate(item.getEndDate());
                 response.putSprint(sprint.getSprintId(), sprint);
             });
 
@@ -138,6 +140,8 @@ public class TaskBoardRestController {
         newSprintItem.setName(form.getSprintName());
         newSprintItem.setStatus("new");
         newSprintItem.setSortOrder(newItemSortOrder++);
+        newSprintItem.setStartDate(form.getStartDate());
+        newSprintItem.setEndDate(form.getEndDate());
 
         mapper.save(newSprintItem);
 
@@ -146,6 +150,8 @@ public class TaskBoardRestController {
         newSprint.setSprintName(newSprintItem.getName());
         newSprint.setSprintStatus(newSprintItem.getStatus());
         newSprint.setSortOrder(newSprintItem.getSortOrder());
+        newSprint.setStartDate(newSprintItem.getStartDate());
+        newSprint.setEndDate(newSprintItem.getEndDate());
 
         return newSprint;
     }
@@ -294,6 +300,19 @@ public class TaskBoardRestController {
         newStory.setSortOrder(storyItem.getSortOrder());
 
         return newStory;
+
+    }
+
+    @RequestMapping(value = "/sprints/sprint/{sprintId}", method= RequestMethod.PUT, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public void updateSprint(@PathVariable("sprintId") String sprintId,  @RequestBody UpdateSprintForm form) {
+        DynamoDBMapper mapper = createMapper();
+
+        TaskItem sprintItem = mapper.load(TaskItem.class, "user1", sprintId);
+        sprintItem.setName(form.getSprintName());
+        sprintItem.setStartDate(form.getStartDate());
+        sprintItem.setEndDate(form.getEndDate());
+
+        mapper.save(sprintItem);
 
     }
 

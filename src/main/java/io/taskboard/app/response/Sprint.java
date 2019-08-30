@@ -11,6 +11,8 @@ public class Sprint {
     private String sprintName;
     private String sprintStatus;
     private int sortOrder;
+    private String startDate;
+    private String endDate;
 
     private Map<String, Story> stories = new HashMap<>();
 

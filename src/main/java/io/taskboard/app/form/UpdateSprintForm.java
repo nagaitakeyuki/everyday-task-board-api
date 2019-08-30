@@ -5,7 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-public class AddSprintForm implements Serializable {
+public class UpdateSprintForm implements Serializable {
     private String sprintName;
     private String startDate;
     private String endDate;

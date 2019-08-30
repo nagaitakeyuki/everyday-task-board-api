@@ -16,6 +16,8 @@ public class TaskItem {
     private String name;
     private String status;
     private Integer sortOrder;
+    private String startDate;
+    private String endDate;
 
     private String baseSprintId;
     private String baseStoryId;
@@ -35,6 +37,12 @@ public class TaskItem {
 
     @DynamoDBAttribute(attributeName="SortOrder")
     public Integer getSortOrder() {return sortOrder;}
+
+    @DynamoDBAttribute(attributeName="startDate")
+    public String getStartDate() {return startDate;}
+
+    @DynamoDBAttribute(attributeName="endDate")
+    public String getEndDate() {return endDate;}
 
     @DynamoDBAttribute(attributeName="BaseSprintId")
     public String getBaseSprintId() {return baseSprintId;}
