@@ -66,6 +66,7 @@ public class TaskBoardRestController {
                 BacklogCategory backlogCategory = new BacklogCategory();
                 backlogCategory.setBacklogCategoryId(item.getItemId());
                 backlogCategory.setBacklogCategoryName(item.getName());
+                backlogCategory.setStatus(item.getStatus());
                 backlogCategory.setSortOrder(item.getSortOrder());
                 response.putBacklogCategory(backlogCategory.getBacklogCategoryId(), backlogCategory);
             });
@@ -311,6 +312,7 @@ public class TaskBoardRestController {
         sprintItem.setName(form.getSprintName());
         sprintItem.setStartDate(form.getStartDate());
         sprintItem.setEndDate(form.getEndDate());
+        sprintItem.setStatus(form.getStatus());
 
         mapper.save(sprintItem);
 
@@ -785,6 +787,7 @@ public class TaskBoardRestController {
 
         bc.setBacklogCategoryId(dbItem.getItemId());
         bc.setBacklogCategoryName(dbItem.getName());
+        bc.setStatus(dbItem.getStatus());
         bc.setSortOrder(dbItem.getSortOrder());
 
         return bc;

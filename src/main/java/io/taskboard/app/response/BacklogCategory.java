@@ -9,6 +9,7 @@ import java.util.Map;
 public class BacklogCategory {
     private String backlogCategoryId;
     private String backlogCategoryName;
+    private String status;
     private int sortOrder;
     private Map<String, Story> stories = new HashMap<>();
 

@@ -9,4 +9,5 @@ public class UpdateSprintForm implements Serializable {
     private String sprintName;
     private String startDate;
     private String endDate;
+    private String status;
 }
