@@ -8,13 +8,11 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import io.taskboard.app.form.*;
 import io.taskboard.app.response.*;
-import io.taskboard.domain.BacklogCategoryIndexItem;
-import io.taskboard.domain.SprintIndexItem;
-import io.taskboard.domain.StoryIndexItem;
-import io.taskboard.domain.TaskItem;
+import io.taskboard.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -22,14 +20,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class TaskBoardRestController {
 
     @Autowired
     private Environment appProps;
 
     @RequestMapping("/sprints")
-    public AllDataResponse getSprints() {
+    public AllDataResponse getSprints(@AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -38,7 +35,7 @@ public class TaskBoardRestController {
                     .withKeyConditionExpression("UserId = :userId")
                     .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                         {
-                            put(":userId", new AttributeValue().withS("user1"));
+                            put(":userId", new AttributeValue().withS(user.getEmail()));
                         }
                     });
 
@@ -118,7 +115,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/sprint", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Sprint addSprint(@RequestBody AddSprintForm form) {
+    public Sprint addSprint(@RequestBody AddSprintForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -128,7 +125,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and begins_with(ItemId, :itemId)")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":itemId", new AttributeValue().withS("sprint"));
                     }
                 });
@@ -136,7 +133,7 @@ public class TaskBoardRestController {
         int newItemSortOrder = mapper.query(TaskItem.class, query).size();
 
         TaskItem newSprintItem = new TaskItem();
-        newSprintItem.setUserId("user1");
+        newSprintItem.setUserId(user.getEmail());
         newSprintItem.setItemId("sprint" + UUID.randomUUID().toString());
         newSprintItem.setName(form.getSprintName());
         newSprintItem.setStatus("new");
@@ -158,7 +155,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/backlogCategory", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public BacklogCategory addBacklogCategory(@RequestBody AddBacklogCategoryForm form) {
+    public BacklogCategory addBacklogCategory(@RequestBody AddBacklogCategoryForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -168,7 +165,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and begins_with(ItemId, :itemId)")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":itemId", new AttributeValue().withS("backlogCategory"));
                     }
                 });
@@ -176,7 +173,7 @@ public class TaskBoardRestController {
         int newItemSortOrder = mapper.query(TaskItem.class, query).size();
 
         TaskItem newBacklogCategoryItem = new TaskItem();
-        newBacklogCategoryItem.setUserId("user1");
+        newBacklogCategoryItem.setUserId(user.getEmail());
         newBacklogCategoryItem.setItemId("backlogCategory" + UUID.randomUUID().toString());
         newBacklogCategoryItem.setName(form.getBacklogCategoryName());
         newBacklogCategoryItem.setStatus("new");
@@ -193,7 +190,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/storyBelongingToSprint", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Story addStoryToSprint(@RequestBody AddStoryForm form) {
+    public Story addStoryToSprint(@RequestBody AddStoryForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -204,7 +201,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and BaseSprintId = :baseSprintId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":baseSprintId", new AttributeValue().withS(form.getSprintId()));
                     }
                 });
@@ -212,7 +209,7 @@ public class TaskBoardRestController {
         int newItemSortOrder = mapper.query(SprintIndexItem.class, query).size();
 
         TaskItem newStoryItem = new TaskItem();
-        newStoryItem.setUserId("user1");
+        newStoryItem.setUserId(user.getEmail());
         newStoryItem.setItemId("story" + UUID.randomUUID().toString());
         newStoryItem.setName(form.getStoryName());
         newStoryItem.setStatus("new");
@@ -232,7 +229,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/storyBelongingToBacklogCategory", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Story addStoryToBacklogCategory(@RequestBody AddStoryToBacklogCategoryForm form) {
+    public Story addStoryToBacklogCategory(@RequestBody AddStoryToBacklogCategoryForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -243,7 +240,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and BacklogCategoryId = :backlogCategoryId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":backlogCategoryId", new AttributeValue().withS(form.getBacklogCategoryId()));
                     }
                 });
@@ -251,7 +248,7 @@ public class TaskBoardRestController {
         int newItemSortOrder = mapper.query(BacklogCategoryIndexItem.class, query).size();
 
         TaskItem newStoryItem = new TaskItem();
-        newStoryItem.setUserId("user1");
+        newStoryItem.setUserId(user.getEmail());
         newStoryItem.setItemId("story" + UUID.randomUUID().toString());
         newStoryItem.setName(form.getStoryName());
         newStoryItem.setStatus("new");
@@ -271,10 +268,10 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/backlogCategoryName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public BacklogCategory changeBacklogCategoryName(@RequestBody ChangeBacklogCategoryNameForm form) {
+    public BacklogCategory changeBacklogCategoryName(@RequestBody ChangeBacklogCategoryNameForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem blcItem = mapper.load(TaskItem.class, "user1", form.getBacklogCategoryId());
+        TaskItem blcItem = mapper.load(TaskItem.class, user.getEmail(), form.getBacklogCategoryId());
         blcItem.setName(form.getBacklogCategoryName());
 
         mapper.save(blcItem);
@@ -284,10 +281,10 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/storyName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Story changeStoryName(@RequestBody ChangeStoryNameForm form) {
+    public Story changeStoryName(@RequestBody ChangeStoryNameForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem storyItem = mapper.load(TaskItem.class, "user1", form.getStoryId());
+        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), form.getStoryId());
         storyItem.setName(form.getStoryName());
 
         mapper.save(storyItem);
@@ -305,10 +302,10 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/sprint/{sprintId}", method= RequestMethod.PUT, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void updateSprint(@PathVariable("sprintId") String sprintId,  @RequestBody UpdateSprintForm form) {
+    public void updateSprint(@PathVariable("sprintId") String sprintId,  @RequestBody UpdateSprintForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem sprintItem = mapper.load(TaskItem.class, "user1", sprintId);
+        TaskItem sprintItem = mapper.load(TaskItem.class, user.getEmail(), sprintId);
         sprintItem.setName(form.getSprintName());
         sprintItem.setStartDate(form.getStartDate());
         sprintItem.setEndDate(form.getEndDate());
@@ -319,10 +316,10 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/story", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Story updateStory(@RequestBody UpdateStoryForm form) {
+    public Story updateStory(@RequestBody UpdateStoryForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem storyItem = mapper.load(TaskItem.class, "user1", form.getStoryId());
+        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), form.getStoryId());
         storyItem.setName(form.getStoryName());
         storyItem.setStatus(form.getStoryStatus());
 
@@ -333,15 +330,15 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/story", method= RequestMethod.DELETE)
-    public void deleteStory(@RequestParam("storyId") String storyId) {
+    public void deleteStory(@RequestParam("storyId") String storyId, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem storyItem = mapper.load(TaskItem.class, "user1", storyId);
+        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), storyId);
 
         List<TaskItem> deleteItems = new ArrayList<>();
 
         deleteItems.add(storyItem);
-        deleteItems.addAll(searchTasksOfStory(storyId, mapper).values());
+        deleteItems.addAll(searchTasksOfStory(storyId, mapper, user).values());
 
         mapper.batchDelete(deleteItems);
 
@@ -349,17 +346,17 @@ public class TaskBoardRestController {
 
 
     @RequestMapping(value = "/sprints/storyBelonging", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void changeStoryBelonging(@RequestBody ChangeStoryBelongingForm form) {
+    public void changeStoryBelonging(@RequestBody ChangeStoryBelongingForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         // TODO: mapperのインスタンスはどの単位で生成するのが正しい？
         DynamoDBMapper mapper = createMapper();
 
         Map<String, TaskItem> srcSideStories = form.getSourceId().startsWith("backlogCategory")
-                                                ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper)
-                                                : searchStoriesOfSprint(form.getSourceId(), mapper);
+                                                ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper, user)
+                                                : searchStoriesOfSprint(form.getSourceId(), mapper, user);
 
         Map<String, TaskItem> destSideStories = form.getDestinationId().startsWith("backlogCategory")
-                                                    ? searchStoriesOfBacklogCategory(form.getDestinationId(), mapper)
-                                                    : searchStoriesOfSprint(form.getDestinationId(), mapper);
+                                                    ? searchStoriesOfBacklogCategory(form.getDestinationId(), mapper, user)
+                                                    : searchStoriesOfSprint(form.getDestinationId(), mapper, user);
 
 
         // 対象ストーリーの所属を変更する
@@ -420,12 +417,12 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/storySortOrder", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void changeStorySortOrder(@RequestBody ChangeStorySortOrderForm form) {
+    public void changeStorySortOrder(@RequestBody ChangeStorySortOrderForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
         Map<String, TaskItem> allStories = form.getSourceId().startsWith("backlogCategory")
-                ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper)
-                : searchStoriesOfSprint(form.getSourceId(), mapper);
+                ? searchStoriesOfBacklogCategory(form.getSourceId(), mapper, user)
+                : searchStoriesOfSprint(form.getSourceId(), mapper, user);
 
         TaskItem changedStory = allStories.get(form.getStoryId());
         boolean isUpForward = form.getNewIndex() - changedStory.getSortOrder() > 0;
@@ -446,10 +443,10 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/task", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void updateTask(@RequestBody UpdateTaskForm form) {
+    public void updateTask(@RequestBody UpdateTaskForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem taskItem = mapper.load(TaskItem.class, "user1", form.getTaskId());
+        TaskItem taskItem = mapper.load(TaskItem.class, user.getEmail(), form.getTaskId());
         taskItem.setName(form.getTaskName());
 
         mapper.save(taskItem);
@@ -457,21 +454,21 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/task", method= RequestMethod.DELETE)
-    public void deleteTask(@RequestParam("taskId") String taskId) {
+    public void deleteTask(@RequestParam("taskId") String taskId, @AuthenticationPrincipal(expression = "user") UserItem user) {
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem taskItem = mapper.load(TaskItem.class, "user1", taskId);
+        TaskItem taskItem = mapper.load(TaskItem.class, user.getEmail(), taskId);
 
         mapper.delete(taskItem);
 
     }
 
     @RequestMapping(value = "/sprints/taskStatus", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form) {
+    public void changeTaskStatus(@RequestBody ChangeTaskStatusForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
-        Map<String, TaskItem> tasks = searchTasksOfStory(form.getStoryId(), mapper);
+        Map<String, TaskItem> tasks = searchTasksOfStory(form.getStoryId(), mapper, user);
 
         TaskItem statusChangedTask = tasks.get(form.getTaskId());
 
@@ -510,7 +507,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/taskSortOrder", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void changeTaskSortIndex(@RequestBody ChangeSortOrderForm form) {
+    public void changeTaskSortIndex(@RequestBody ChangeSortOrderForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -521,7 +518,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":baseStoryId", new AttributeValue().withS(form.getStoryId()));
                     }
                 });
@@ -531,7 +528,7 @@ public class TaskBoardRestController {
         // 各タスクの詳細を取得する
         List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
             TaskItem item = new TaskItem();
-            item.setUserId("user1");
+            item.setUserId(user.getEmail());
             item.setItemId(taskId.getItemId());
             return item;
         }).collect(Collectors.toList());
@@ -562,7 +559,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/tasks", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public AddTasksResponse addTasks(@RequestBody AddTasksForm form) {
+    public AddTasksResponse addTasks(@RequestBody AddTasksForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
@@ -573,7 +570,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":baseStoryId", new AttributeValue().withS(form.getStoryId()));
                     }
                 });
@@ -585,7 +582,7 @@ public class TaskBoardRestController {
         // 各タスクの詳細を取得する
         List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
             TaskItem item = new TaskItem();
-            item.setUserId("user1");
+            item.setUserId(user.getEmail());
             item.setItemId(taskId.getItemId());
             return item;
         }).collect(Collectors.toList());
@@ -604,7 +601,7 @@ public class TaskBoardRestController {
                                                 .map(taskName ->
                                                         {
                                                             TaskItem newTask = new TaskItem();
-                                                            newTask.setUserId("user1");
+                                                            newTask.setUserId(user.getEmail());
                                                             newTask.setItemId("task" + UUID.randomUUID().toString());
                                                             newTask.setName(taskName);
                                                             newTask.setStatus("new");
@@ -678,14 +675,14 @@ public class TaskBoardRestController {
         return a.getSortOrder() - b.getSortOrder();
     }
 
-    private Map<String, TaskItem> searchStoriesOfBacklogCategory(String backlogCategoryId, DynamoDBMapper mapper) {
+    private Map<String, TaskItem> searchStoriesOfBacklogCategory(String backlogCategoryId, DynamoDBMapper mapper, UserItem user) {
         DynamoDBQueryExpression<BacklogCategoryIndexItem> query
                 = new DynamoDBQueryExpression<BacklogCategoryIndexItem>()
                         .withIndexName("BacklogCategoryIndex")
                         .withKeyConditionExpression("UserId = :userId and BacklogCategoryId = :backlogCategoryId")
                         .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                             {
-                                put(":userId", new AttributeValue().withS("user1"));
+                                put(":userId", new AttributeValue().withS(user.getEmail()));
                                 put(":backlogCategoryId", new AttributeValue().withS(backlogCategoryId));
                             }
                         });
@@ -695,7 +692,7 @@ public class TaskBoardRestController {
         // 各ストーリーの詳細を取得する
         List<TaskItem> storiesToGet = storyIds.stream().map(storyId -> {
                                                             TaskItem item = new TaskItem();
-                                                            item.setUserId("user1");
+                                                            item.setUserId(user.getEmail());
                                                             item.setItemId(storyId.getItemId());
                                                             return item;
                                                         }).collect(Collectors.toList());
@@ -712,14 +709,14 @@ public class TaskBoardRestController {
         }
     }
 
-    private Map<String, TaskItem> searchStoriesOfSprint(String sprintId, DynamoDBMapper mapper) {
+    private Map<String, TaskItem> searchStoriesOfSprint(String sprintId, DynamoDBMapper mapper, UserItem user) {
         DynamoDBQueryExpression<SprintIndexItem> query
                 = new DynamoDBQueryExpression<SprintIndexItem>()
                         .withIndexName("SprintIndex")
                         .withKeyConditionExpression("UserId = :userId and BaseSprintId = :baseSprintId")
                         .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                             {
-                                put(":userId", new AttributeValue().withS("user1"));
+                                put(":userId", new AttributeValue().withS(user.getEmail()));
                                 put(":baseSprintId", new AttributeValue().withS(sprintId));
                             }
                         });
@@ -729,7 +726,7 @@ public class TaskBoardRestController {
         // 各ストーリーの詳細を取得する
         List<TaskItem> storiesToGet = storyIds.stream().map(storyId -> {
                                                             TaskItem item = new TaskItem();
-                                                            item.setUserId("user1");
+                                                            item.setUserId(user.getEmail());
                                                             item.setItemId(storyId.getItemId());
                                                             return item;
                                                         }).collect(Collectors.toList());
@@ -746,7 +743,7 @@ public class TaskBoardRestController {
         }
     }
 
-    private Map<String, TaskItem> searchTasksOfStory(String storyId, DynamoDBMapper mapper) {
+    private Map<String, TaskItem> searchTasksOfStory(String storyId, DynamoDBMapper mapper, UserItem user) {
         // 対象タスクのストーリーに属する、全タスクのIDを取得する
         DynamoDBQueryExpression<StoryIndexItem> query
                 = new DynamoDBQueryExpression<StoryIndexItem>()
@@ -754,7 +751,7 @@ public class TaskBoardRestController {
                 .withKeyConditionExpression("UserId = :userId and BaseStoryId = :baseStoryId")
                 .withExpressionAttributeValues(new HashMap<String, AttributeValue>() {
                     {
-                        put(":userId", new AttributeValue().withS("user1"));
+                        put(":userId", new AttributeValue().withS(user.getEmail()));
                         put(":baseStoryId", new AttributeValue().withS(storyId));
                     }
                 });
@@ -764,7 +761,7 @@ public class TaskBoardRestController {
         // 各タスクの詳細を取得する
         List<TaskItem> tasksToGet = taskIds.stream().map(taskId -> {
                                                             TaskItem item = new TaskItem();
-                                                            item.setUserId("user1");
+                                                            item.setUserId(user.getEmail());
                                                             item.setItemId(taskId.getItemId());
                                                             return item;
                                                         }).collect(Collectors.toList());
