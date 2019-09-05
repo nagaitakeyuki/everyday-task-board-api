@@ -47,6 +47,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             // LOGOUT
             .logout()
                 .logoutUrl("/logout")
+                .addLogoutHandler(new SimpleLogoutHandler(dbMapperCreator))
+                .deleteCookies("taskboardsessionid")
                 .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler())
             .and()
             // CSRF
