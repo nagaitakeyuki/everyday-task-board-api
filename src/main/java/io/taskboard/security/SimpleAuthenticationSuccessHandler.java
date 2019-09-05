@@ -1,18 +1,24 @@
 package io.taskboard.security;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.taskboard.app.response.LoginUser;
+import io.taskboard.dao.DynamoDBMapperCreator;
+import io.taskboard.domain.SessionItem;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.WebAttributes;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Date;
-import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -21,14 +27,13 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class SimpleAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
+    private DynamoDBMapper mapper;
 
     private static final Long EXPIRATION_TIME = TimeUnit.MINUTES.toMillis(60L);
+    private static final Long EXPIRATION_TIME_IN_SECONDS = TimeUnit.MINUTES.toSeconds(60L);
 
-    final private Algorithm algorithm;
-
-    public SimpleAuthenticationSuccessHandler(String secretKey) {
-        Objects.requireNonNull(secretKey, "secret key must be not null");
-        this.algorithm = Algorithm.HMAC512(secretKey);
+    public SimpleAuthenticationSuccessHandler(DynamoDBMapperCreator mapperCreator) {
+        this.mapper = mapperCreator.createMapper();
     }
 
     @Override
@@ -39,25 +44,39 @@ public class SimpleAuthenticationSuccessHandler implements AuthenticationSuccess
             log.info("Response has already been committed.");
             return;
         }
-        setToken(response, generateToken(auth));
-        response.setStatus(HttpStatus.OK.value());
-        clearAuthenticationAttributes(request);
-    }
 
-    private String generateToken(Authentication auth) {
         SimpleLoginUser loginUser = (SimpleLoginUser) auth.getPrincipal();
-        Date issuedAt = new Date();
-        Date notBefore = new Date(issuedAt.getTime());
-        Date expiresAt = new Date(issuedAt.getTime() + EXPIRATION_TIME);
-        String token = JWT.create().withIssuedAt(issuedAt)
-                                 .withNotBefore(notBefore)
-                                 .withExpiresAt(expiresAt)
-                                 .withSubject(loginUser.getUser().getEmail())
-                        .sign(this.algorithm);
 
-        log.debug("generate token : {}", token);
+        String sessionId = UUID.randomUUID().toString();
 
-        return token;
+        SessionItem sessionItem = new SessionItem();
+        sessionItem.setSessionId(sessionId);
+        sessionItem.setUserId(loginUser.getUser().getEmail());
+        sessionItem.setExpirationDateTime(new Date().getTime() + EXPIRATION_TIME);
+
+        mapper.save(sessionItem);
+
+        Cookie sessionIdCookie = new Cookie("taskboardsessionid", sessionId);
+        sessionIdCookie.setHttpOnly(true);
+        // TODO: デベロッパーツールをみると、ExpiresがUTCになってる。
+        sessionIdCookie.setMaxAge(EXPIRATION_TIME_IN_SECONDS.intValue());
+
+        response.addCookie(sessionIdCookie);
+        response.setStatus(HttpStatus.OK.value());
+
+        response.setContentType("application/json;charset=UTF-8");
+
+        try (PrintWriter pw = response.getWriter()) {
+            LoginUser userResponse = new LoginUser();
+            userResponse.setEmail(loginUser.getUser().getEmail());
+            userResponse.setUserName(loginUser.getUser().getUserName());
+
+            pw.println(new ObjectMapper().writeValueAsString(userResponse));
+        } catch (IOException ioe) {
+            throw new RuntimeException(ioe);
+        }
+
+        clearAuthenticationAttributes(request);
     }
 
     private void setToken(HttpServletResponse response, String token) {

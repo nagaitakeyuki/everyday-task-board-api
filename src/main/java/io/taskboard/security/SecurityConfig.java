@@ -19,15 +19,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Autowired
     private DynamoDBMapperCreator dbMapperCreator;
 
-    // @Value("${security.secret-key:secret}")
-    private String secretKey = "secret";
-
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         // @formatter:off
         http
             // AUTHORIZE
             .authorizeRequests()
+                .mvcMatchers("/user/**")
+                    .hasRole("USER")
                 .mvcMatchers("/sprints/**")
                     .hasRole("USER")
                 .anyRequest()
@@ -42,7 +41,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .loginProcessingUrl("/authenticate").permitAll()
                     .usernameParameter("email")
                     .passwordParameter("pass")
-                .successHandler(new SimpleAuthenticationSuccessHandler(secretKey))
+                .successHandler(new SimpleAuthenticationSuccessHandler(dbMapperCreator))
                 .failureHandler(new SimpleAuthenticationFailureHandler())
             .and()
             // LOGOUT
@@ -54,7 +53,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .csrf()
                 .disable()
             // AUTHORIZE
-            .addFilterBefore(new SimpleTokenFilter(secretKey, dbMapperCreator), UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(new SimpleTokenFilter(dbMapperCreator), UsernamePasswordAuthenticationFilter.class)
             // SESSION
             .sessionManagement()
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

@@ -11,6 +11,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.authentication.session.SessionAuthenticationException;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -27,7 +28,7 @@ public class SimpleAuthenticationEntryPoint implements AuthenticationEntryPoint 
   @Override
   public void commence(HttpServletRequest request,
                        HttpServletResponse response,
-                       AuthenticationException exception) throws IOException {
+                       AuthenticationException exception) throws IOException, ServletException {
     if (response.isCommitted()) {
       log.info("Response has already been committed.");
       return;
