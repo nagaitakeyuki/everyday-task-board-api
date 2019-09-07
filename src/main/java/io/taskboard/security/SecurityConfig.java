@@ -27,6 +27,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .authorizeRequests()
                 .antMatchers("/", "/favicon.ico", "/*.json", "/*.js", "/static/**", "/imgs/**")
                     .permitAll()
+                .mvcMatchers("/user")
+                    .permitAll()
                 .mvcMatchers("/user/**")
                     .hasRole("USER")
                 .mvcMatchers("/sprints/**")
