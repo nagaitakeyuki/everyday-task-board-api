@@ -10,7 +10,8 @@ phases:
   build:
     commands:
     - echo Build started on `date`
-    - mvn install
+    - cp -r $CODEBUILD_SRC_DIR_source2/* ./src/main/resources/public
+    - mvn clean package -f pom.xml -P prod
   post_build:
     commands:
     - echo Build completed on `date`
