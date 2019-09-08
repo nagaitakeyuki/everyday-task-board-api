@@ -10,10 +10,10 @@ phases:
   build:
     commands:
     - echo Build started on `date`
-    - echo $CODEBUILD_SRC_DIR_source1
-    - echo $CODEBUILD_SRC_DIR_source2
-    - mkdir $CODEBUILD_SRC_DIR_source1/src/main/resources/public
-    - cp -r $CODEBUILD_SRC_DIR_source2/* $CODEBUILD_SRC_DIR_source1/src/main/resources/public
+    - echo $CODEBUILD_SRC_DIR_ApiSourceCode
+    - echo $CODEBUILD_SRC_DIR_FrontendBuiltArtifact
+    - mkdir $CODEBUILD_SRC_DIR_ApiSourceCode/src/main/resources/public
+    - cp -r $CODEBUILD_SRC_DIR_FrontendBuiltArtifact/* $CODEBUILD_SRC_DIR_ApiSourceCode/src/main/resources/public
     - mvn clean package -f pom.xml -P prod
   post_build:
     commands:
