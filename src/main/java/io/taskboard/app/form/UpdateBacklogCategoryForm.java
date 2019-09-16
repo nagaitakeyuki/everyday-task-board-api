@@ -5,7 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-public class ChangeBacklogCategoryNameForm implements Serializable {
+public class UpdateBacklogCategoryForm implements Serializable {
     private String backlogCategoryId;
 
     private String backlogCategoryName;
