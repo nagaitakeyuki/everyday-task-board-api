@@ -267,11 +267,17 @@ public class TaskBoardRestController {
         return newStory;
     }
 
-    @RequestMapping(value = "/sprints/backlogCategoryName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public BacklogCategory changeBacklogCategoryName(@RequestBody ChangeBacklogCategoryNameForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
+
+    @RequestMapping(value = "/sprints/backlogCategory/{backlogCategoryId}",
+                    method= RequestMethod.PUT,
+                    consumes = MediaType.APPLICATION_JSON_VALUE)
+    public BacklogCategory updateBacklogCategory(@PathVariable("backlogCategoryId") String backlogCategoryId,
+                                                 @RequestBody UpdateBacklogCategoryForm form,
+                                                 @AuthenticationPrincipal(expression = "user") UserItem user) {
+
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem blcItem = mapper.load(TaskItem.class, user.getEmail(), form.getBacklogCategoryId());
+        TaskItem blcItem = mapper.load(TaskItem.class, user.getEmail(), backlogCategoryId);
         blcItem.setName(form.getBacklogCategoryName());
 
         mapper.save(blcItem);
@@ -280,11 +286,16 @@ public class TaskBoardRestController {
 
     }
 
-    @RequestMapping(value = "/sprints/storyName", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Story changeStoryName(@RequestBody ChangeStoryNameForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
+    @RequestMapping(value = "/sprints/storyName/{storyId}",
+                    method= RequestMethod.PUT,
+                    consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Story changeStoryName(@PathVariable("storyId") String storyId,
+                                 @RequestBody UpdateStoryNameForm form,
+                                 @AuthenticationPrincipal(expression = "user") UserItem user) {
+
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), form.getStoryId());
+        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), storyId);
         storyItem.setName(form.getStoryName());
 
         mapper.save(storyItem);
@@ -301,8 +312,13 @@ public class TaskBoardRestController {
 
     }
 
-    @RequestMapping(value = "/sprints/sprint/{sprintId}", method= RequestMethod.PUT, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void updateSprint(@PathVariable("sprintId") String sprintId,  @RequestBody UpdateSprintForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
+    @RequestMapping(value = "/sprints/sprint/{sprintId}",
+                    method= RequestMethod.PUT,
+                    consumes = MediaType.APPLICATION_JSON_VALUE)
+    public void updateSprint(@PathVariable("sprintId") String sprintId,
+                             @RequestBody UpdateSprintForm form,
+                             @AuthenticationPrincipal(expression = "user") UserItem user) {
+
         DynamoDBMapper mapper = createMapper();
 
         TaskItem sprintItem = mapper.load(TaskItem.class, user.getEmail(), sprintId);
@@ -315,11 +331,16 @@ public class TaskBoardRestController {
 
     }
 
-    @RequestMapping(value = "/sprints/story", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Story updateStory(@RequestBody UpdateStoryForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
+    @RequestMapping(value = "/sprints/story/{storyId}",
+                    method= RequestMethod.PUT,
+                    consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Story updateStory(@PathVariable("storyId") String storyId,
+                             @RequestBody UpdateStoryForm form,
+                             @AuthenticationPrincipal(expression = "user") UserItem user) {
+
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), form.getStoryId());
+        TaskItem storyItem = mapper.load(TaskItem.class, user.getEmail(), storyId);
         storyItem.setName(form.getStoryName());
         storyItem.setStatus(form.getStoryStatus());
 
@@ -442,11 +463,16 @@ public class TaskBoardRestController {
 
     }
 
-    @RequestMapping(value = "/sprints/task", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void updateTask(@RequestBody UpdateTaskForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
+    @RequestMapping(value = "/sprints/task/{taskId}",
+                    method= RequestMethod.PUT,
+                    consumes = MediaType.APPLICATION_JSON_VALUE)
+    public void updateTask(@PathVariable("taskId") String taskId,
+                           @RequestBody UpdateTaskForm form,
+                           @AuthenticationPrincipal(expression = "user") UserItem user) {
+
         DynamoDBMapper mapper = createMapper();
 
-        TaskItem taskItem = mapper.load(TaskItem.class, user.getEmail(), form.getTaskId());
+        TaskItem taskItem = mapper.load(TaskItem.class, user.getEmail(), taskId);
         taskItem.setName(form.getTaskName());
 
         mapper.save(taskItem);
@@ -507,7 +533,7 @@ public class TaskBoardRestController {
     }
 
     @RequestMapping(value = "/sprints/taskSortOrder", method= RequestMethod.POST, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public void changeTaskSortIndex(@RequestBody ChangeSortOrderForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
+    public void changeTaskSortOrder(@RequestBody ChangeSortOrderForm form, @AuthenticationPrincipal(expression = "user") UserItem user) {
 
         DynamoDBMapper mapper = createMapper();
 
