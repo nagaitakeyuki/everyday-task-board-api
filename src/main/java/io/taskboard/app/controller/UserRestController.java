@@ -25,7 +25,7 @@ public class UserRestController {
     private PasswordEncoder passwordEncoder;
 
     @RequestMapping("")
-    public void createUser(@RequestBody CreateUserForm form) {
+    public void createUser1(@RequestBody CreateUserForm form) {
         UserItem newUser = new UserItem();
         newUser.setEmail(form.getEmail());
         newUser.setUserName(form.getUserName());
